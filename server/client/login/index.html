@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Login</title>
+        <meta charset="UTF-8">
+        <link rel="stylesheet" href="/authPage.css">
+    </head>
+
+    <body>
+        <div class="auth-container">
+            <div class="auth-title">Login</div>
+
+            <div class="auth-field">
+                <label for="emailInput">Email</label>
+                <input id="emailInput" type="email">
+            </div>
+
+            <div class="auth-field">
+                <label for="passwordInput">Password</label>
+                <input id="passwordInput" type="password">
+                <button id="togglePasswordButton">👁️</button>
+            </div>
+
+            <div class="auth-actions">
+                <button id="loginButton">Login</button>
+            </div>
+
+            <div class="auth-links">
+                <a href="/resetPassword">Forgot your password?</a>
+                <a href="/register">Register instead</a>
+            </div>
+        </div>
+    </body>
+
+    <script src="/common.js"></script>
+    <script src="index.js"></script>
+</html>

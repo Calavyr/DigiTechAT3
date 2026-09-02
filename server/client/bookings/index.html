@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Bookings</title>
+        <meta charset="UTF-8">
+        <link rel="stylesheet" href="index.css">
+    </head>
+
+    <body>
+        <div><button onclick="prevDay()">⮜</button><input type="date" id="datePicker"><button onclick="nextDay()">➤</button></div><br>
+        
+        <canvas id="canvas" width="1000" height="600"></canvas>
+
+        <div id="tooltip"><p>Click to delete booking</p></div>
+    </body>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/common.js"></script>
+    <script src="index.js"></script>
+    <script src="rendering.js"></script>
+</html>
