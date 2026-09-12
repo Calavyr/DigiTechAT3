@@ -1,3 +1,0 @@
-1. Change stuff to be for the app instead of the old booking system
-2. Make it so requesting a new auth token or whatever it is makes old ones invalid
-3. idek man

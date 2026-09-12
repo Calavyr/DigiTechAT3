@@ -1,0 +1,3 @@
+Click the link below to verify your account
+If this email has been sent to you and you did not attempt to create or reset the password on your [SERVICE NAME] account, ignore this email.
+LINKGOESHERE

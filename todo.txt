@@ -1,0 +1,6 @@
+1. Add logout button to dashboard for testing
+2. Add habits page for users to add daily routines checklist thing
+3. Study so people can make study groups with other people, with timers and subjects and study stats like yeolpumta, maybe study group chat or something idfk
+4. Goals page for users to set long-term goals
+5. home page which is simplified view of daily checklist, goal progress, streak, etc.
+6. profile page for account/settings
