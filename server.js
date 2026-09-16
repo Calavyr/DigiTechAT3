@@ -8,6 +8,8 @@ const path = require('path')
 const gatekeeper = require('./middleware/gatekeeper')
 
 const mongoose = require('mongoose')
+const mongooseLeanId = require('mongoose-lean-id')
+
 const { createUser } = require('./controllers/authController')
 
 require('dotenv').config({ path: 'config.env' })
@@ -17,6 +19,7 @@ const { verificationEmailIds, deleteVerificationEmailId } = require('./shared/em
 
 async function connectDB() {
     try {
+        mongoose.plugin(mongooseLeanId)
         await mongoose.connect(MONGO_URI, {})
         console.log("MongoDB connected successfully")
     } catch (error) {

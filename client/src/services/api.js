@@ -12,6 +12,7 @@ export async function request(endpoint, options = {}) {
     try {
         const response = await fetch(url, options)
         const data = await response.json().catch(() => ({}))
+        data.status ??= response.status
 
         if (!response.ok && endpoint != '/auth/me') {
             throw new Error(data.message || `HTTP error. Status ${response.status}`)

@@ -27,7 +27,7 @@ export default defineConfig({
       },
       registerType: 'autoUpdate',
       workbox: {
-        // Tells the PWA service worker to never intercept URLs containing /verify/
+        // Tells the PWA service worker to never intercept URLs containing /verify/ or /api/
         navigateFallbackDenylist: [/^\/verify\//, /^\/api\//]
       }
     })
@@ -41,7 +41,6 @@ export default defineConfig({
     minify: false
   },
   esbuild: {
-    // 3. Keep your original variable and function names
     mangleProps: false,
     reserveProps: [],
   }

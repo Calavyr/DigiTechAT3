@@ -39,7 +39,7 @@
 <script setup>
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
-import { request } from '../../services/api.js'
+import { request } from '@/services/api.js'
 
 const router = useRouter()
 

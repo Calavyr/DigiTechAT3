@@ -3,7 +3,7 @@
     <h2>Welcome {{ authState.user ? authState.user.username : 'user' }}</h2>
     
     <div>
-
+      
     </div>
     <div>
       

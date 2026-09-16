@@ -1,16 +1,22 @@
 const express = require('express')
 const router = express.Router()
-const { fetchBookedTimes, createBooking, deleteBooking } = require('./controllers/bookingController')
-const { registerUser, login, refreshToken, verifyAccessToken, resetPassword } = require('./controllers/authController')
+const { fetchUserHabitsByDate, fetchUserHabits, createHabit, getHabit, editHabit, deleteHabit, completeHabit, deleteHabitCompletion } = require('./controllers/habitController')
+const { registerUser, login, logout, refreshToken, resetPassword } = require('./controllers/authController')
 
+router.get('/habits/date/:date', fetchUserHabitsByDate)
+router.get('/habits', fetchUserHabits)
+router.post('/habits', createHabit)
+router.get('/habits/:habitId', getHabit)
+router.patch('/habits/:habitId', editHabit)
+router.delete('/habits/:habitId', deleteHabit)
 
-router.get('/bookings', fetchBookedTimes)
-router.post('/bookings', createBooking)
-router.delete('/bookings', deleteBooking)
+router.post('/habits/:habitId/completions', completeHabit)
+router.delete('/habits/:habitId/completions/:date', deleteHabitCompletion)
 
 router.post('/auth/register', registerUser)
 router.post('/auth/resetPassword', resetPassword)
 router.post('/auth/login', login)
+router.post('/auth/logout', logout)
 router.post('/auth/refresh', refreshToken)
 router.get('/auth/me', (req, res) => {
     if (req.user) {

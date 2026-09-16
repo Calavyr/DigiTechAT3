@@ -29,7 +29,7 @@
 
       <button type="submit" :disabled="isLoading">{{ isLoading ? 'Signing in...' : 'Sign in' }}</button>
     </form>
-    <router-link to="/register">Don't have an account? Register</router-link>
+    <router-link to="/register">Don't have an account? Register</router-link><br>
 	<router-link to="/register">Forgot your password? Reset password</router-link>
   </div>
 </template>
@@ -37,7 +37,8 @@
 <script setup>
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
-import { request } from '../../services/api.js'
+import { request } from '@/services/api.js'
+import { authState } from '@/services/authState'
 
 const router = useRouter()
 
@@ -58,6 +59,8 @@ async function handleLogin() {
 			method: 'POST',
 			body: JSON.stringify(form)
 		})
+		authState.user = response
+		authState.isInitialized = true
 
 		router.push('/dashboard')
 	} catch (err) {

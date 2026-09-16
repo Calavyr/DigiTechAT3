@@ -13,10 +13,12 @@
 import { useRoute } from 'vue-router'
 import NavBar from './components/NavBar.vue'
 
-// This creates a reactive reference to the current route layout safely
 const route = useRoute()
 </script>
 
 <style>
-/* App global layouts go here */
+@import url('https://fonts.googleapis.com/css2?family=Comfortaa:wght@300..700&display=swap');
+* {
+  font-family: 'Comfortaa';
+}
 </style>

@@ -7,6 +7,13 @@ const { sendVerificationEmail } = require('./mailController')
 exports.ACCESS_TOKEN_TTL_SECONDS = 15 * 60 // Time-to-live: 15 Minutes
 exports.REFRESH_TOKEN_TTL_SECONDS = 14 * 24 * 60 * 60 // Time-to-live: 14 days
 
+const baseCookieOptions = {
+    httpOnly: true,
+    secure: true,
+    sameSite: 'Strict',
+    signed: true
+}
+
 exports.login = async (req, res) => {
     try {
         const { login, password } = req.body
@@ -25,13 +32,6 @@ exports.login = async (req, res) => {
         const accessToken = this.createAccessToken(user.id)
         const refreshToken = this.createRefreshToken(user.id)
 
-        const baseCookieOptions = {
-            httpOnly: true,
-            secure: true,
-            sameSite: 'Strict',
-            signed: true
-        }
-
         res.cookie('accessToken', accessToken, {
             ...baseCookieOptions,
             maxAge: this.ACCESS_TOKEN_TTL_SECONDS * 1000
@@ -41,11 +41,22 @@ exports.login = async (req, res) => {
             ...baseCookieOptions,
             maxAge: this.REFRESH_TOKEN_TTL_SECONDS * 1000
         })
-        
-        res.status(200).send()
+        res.status(200).json({ userId: user.id, username: user.username, email: user.email})
     } catch (err) {
         console.error('Error logging user in: ', err)
         res.status(500).json({ message: 'Unexpected error logging user in' })
+    }
+}
+
+exports.logout = async (req, res) => {
+    try {
+        res.clearCookie('accessToken', baseCookieOptions)
+        res.clearCookie('refreshToken', baseCookieOptions)
+        
+        res.status(200).json({ message: 'Logged out successfully' })
+    } catch (err) {
+        console.error('Error logging user out: , err')
+        res.status(500).json({ message: 'Unexpected error logging user out' })
     }
 }
 
@@ -124,13 +135,6 @@ exports.refreshToken = async (req, res) => {
 
         const newAccessToken = this.createAccessToken(userId)
         const newRefreshToken = this.createRefreshToken(userId)
-
-        const baseCookieOptions = {
-            httpOnly: true,
-            secure: true,
-            sameSite: 'Strict',
-            signed: true
-        }
 
         res.cookie('accessToken', newAccessToken, {
             ...baseCookieOptions,
