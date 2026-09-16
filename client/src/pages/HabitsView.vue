@@ -161,7 +161,7 @@ const progress = computed(() => {
 	const completedHabitCount = todaysHabits.value.filter(
 			habit => habit.completed
 	).length
-	progress.value = ((completedHabitCount / habits.value.length) * 100).toFixed(2)
+	return ((completedHabitCount / habits.value.length) * 100).toFixed(2)
 })
 
 onMounted(() => {
@@ -198,7 +198,6 @@ const daysOfWeek = [
   { name: 'Sat', value: 6 },
   { name: 'Sun', value: 7 }
 ]
-
 
 function openCreateForm() {
   editingHabit.value = null
