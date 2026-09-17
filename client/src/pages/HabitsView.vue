@@ -21,6 +21,7 @@
       <form @submit.prevent="saveHabit">
         <div>
           <label for="name">Name</label>
+
           <input
             id="name"
             v-model="habitForm.name"
@@ -31,6 +32,7 @@
 
         <div>
           <label for="description">Description</label>
+
           <input
             id="description"
             v-model="habitForm.description"
@@ -40,6 +42,7 @@
 
         <div>
           <label for="category">Category</label>
+
           <select
             id="category"
             v-model="habitForm.category"
@@ -57,12 +60,16 @@
         <div>
           <p>Days</p>
 
-          <label v-for="day in daysOfWeek" :key="day.value">
+          <label
+            v-for="day in daysOfWeek"
+            :key="day.value"
+          >
             <input
               type="checkbox"
               :value="day.value"
               v-model="habitForm.daysOfWeek"
             >
+
             {{ day.name }}
           </label>
         </div>
@@ -80,107 +87,123 @@
       </form>
     </div>
 
+
     <h3>Today's habits</h3>
 
     <div class="habits-list">
-			<div
-				v-for="habit in todaysHabits"
-				:key="habit._id"
-				class="habit"
-			>
-				<label>
-					<input
-						type="checkbox"
-						:checked="habit.completed"
-						@change="handleHabitToggle(habit)"
-					>
+      <div
+        v-for="habit in todaysHabits"
+        :key="habit._id"
+        class="habit"
+      >
+        <label>
+          <input
+            type="checkbox"
+            :checked="habit.completed"
+            @change="handleHabitToggle(habit)"
+          >
 
-					{{ habit.name }}
+          {{ habit.name }}
 
-					<span v-if="habit.description">
-						 - {{ habit.description }}
-					</span>
-					<span>
-						 - {{ formatDaysOfWeek(habit.daysOfWeek) }}
-					</span>
-				</label>
+          <span v-if="habit.description">
+            - {{ habit.description }}
+          </span>
 
-				<button @click="openEditForm(habit)">
-					Edit
-				</button>
+          <span>
+            - {{ formatDaysOfWeek(habit.daysOfWeek) }}
+          </span>
+        </label>
 
-				<button @click="deleteHabit(habit)">
-					Delete
-				</button>
-			</div>
+        <button @click="openEditForm(habit)">
+          Edit
+        </button>
+
+        <button @click="deleteHabit(habit)">
+          Delete
+        </button>
+      </div>
     </div>
 
 
     <h3>Other habits</h3>
 
     <div class="habits-list">
-			<div
-				v-for="habit in otherHabits"
-				:key="habit._id"
-				class="habit"
-			>
-				<span>
-					{{ habit.name }}
+      <div
+        v-for="habit in otherHabits"
+        :key="habit._id"
+        class="habit"
+      >
+        <span>
+          {{ habit.name }}
 
-					<span v-if="habit.description">
-						 - {{ habit.description }}
-					</span>
-					<span>
-						 - {{ formatDaysOfWeek(habit.daysOfWeek) }}
-					</span>
-				</span>
+          <span v-if="habit.description">
+            - {{ habit.description }}
+          </span>
 
-				<button @click="openEditForm(habit)">
-					Edit
-				</button>
+          <span>
+            - {{ formatDaysOfWeek(habit.daysOfWeek) }}
+          </span>
+        </span>
 
-				<button @click="deleteHabit(habit)">
-					Delete
-				</button>
-			</div>
+        <button @click="openEditForm(habit)">
+          Edit
+        </button>
+
+        <button @click="deleteHabit(habit)">
+          Delete
+        </button>
+      </div>
     </div>
-    <button @click="openCreateForm">Add habit</button>
+
+
+    <button @click="openCreateForm">
+      Add habit
+    </button>
   </div>
 </template>
 
+
 <script setup>
 import { ref, reactive, onMounted, computed } from 'vue'
-import { useRouter } from 'vue-router'
 import { request } from '@/services/api.js'
 
-const date = ref(new Date().toLocaleDateString('en-GB'))
-const progress = computed(() => {
-	if (todaysHabits.value.length === 0) {
-		return 0
-	}
-	const completedHabitCount = todaysHabits.value.filter(
-			habit => habit.completed
-	).length
-	return ((completedHabitCount / habits.value.length) * 100).toFixed(2)
-})
 
-onMounted(() => {
-  console.log('HabitsVue.vue mounted')
-  tryLoadHabits()
-})
+const date = ref(
+  new Date().toLocaleDateString('en-GB')
+)
+
 
 const habits = ref([])
 
+
 const todaysHabits = computed(() => {
-    return habits.value.filter(habit => habit.isToday)
+  return habits.value.filter(habit => habit.isToday)
 })
 
+
 const otherHabits = computed(() => {
-    return habits.value.filter(habit => !habit.isToday)
+  return habits.value.filter(habit => !habit.isToday)
 })
+
+
+const progress = computed(() => {
+  if (todaysHabits.value.length === 0) {
+    return 0
+  }
+
+  const completedHabitCount = todaysHabits.value.filter(
+    habit => habit.completed
+  ).length
+
+  return (
+    (completedHabitCount / todaysHabits.value.length) * 100
+  ).toFixed(2)
+})
+
 
 const showHabitForm = ref(false)
 const editingHabit = ref(null)
+
 
 const habitForm = reactive({
   name: '',
@@ -188,6 +211,7 @@ const habitForm = reactive({
   category: 'Health',
   daysOfWeek: []
 })
+
 
 const daysOfWeek = [
   { name: 'Mon', value: 1 },
@@ -199,6 +223,14 @@ const daysOfWeek = [
   { name: 'Sun', value: 7 }
 ]
 
+
+onMounted(() => {
+  console.log('HabitsVue.vue mounted')
+
+  tryLoadHabits()
+})
+
+
 function openCreateForm() {
   editingHabit.value = null
 
@@ -209,6 +241,8 @@ function openCreateForm() {
 
   showHabitForm.value = true
 }
+
+
 function openEditForm(habit) {
   editingHabit.value = habit
 
@@ -219,30 +253,43 @@ function openEditForm(habit) {
 
   showHabitForm.value = true
 }
+
+
 function closeHabitForm() {
   showHabitForm.value = false
   editingHabit.value = null
 }
+
+
 async function saveHabit() {
   try {
-    if (editingHabit.value) { // Editing habit
-      await request(`/habits/${editingHabit.value._id}`, {
-        method: 'PATCH',
-        body: JSON.stringify(habitForm)
-      })
-    } else { // Creating habit
-      await request('/habits', {
-        method: 'POST',
-        body: JSON.stringify(habitForm)
-      })
+    if (editingHabit.value) {
+      await request(
+        `/habits/${editingHabit.value._id}`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify(habitForm)
+        }
+      )
+    } else {
+      await request(
+        '/habits',
+        {
+          method: 'POST',
+          body: JSON.stringify(habitForm)
+        }
+      )
     }
 
     closeHabitForm()
+
     await tryLoadHabits()
   } catch (err) {
     console.error('Error saving habit: ', err)
   }
 }
+
+
 async function deleteHabit(habit) {
   const confirmed = confirm(
     `Are you sure you want to delete "${habit.name}"?`
@@ -253,9 +300,12 @@ async function deleteHabit(habit) {
   }
 
   try {
-    await request(`/habits/${habit._id}`, {
-      method: 'DELETE'
-    })
+    await request(
+      `/habits/${habit._id}`,
+      {
+        method: 'DELETE'
+      }
+    )
 
     await tryLoadHabits()
   } catch (err) {
@@ -263,69 +313,173 @@ async function deleteHabit(habit) {
   }
 }
 
+
+/*
+ * Get the UTC timestamps representing the beginning
+ * and end of today's local calendar day.
+ *
+ * For example, if the browser is in Adelaide:
+ *
+ * local:
+ * 17/09/2026 00:00
+ *        ↓
+ * 18/09/2026 00:00
+ *
+ * These are then converted to UTC using toISOString().
+ */
+function getTodaysDateRange() {
+  const now = new Date()
+
+  const start = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate()
+  )
+
+  const end = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate() + 1
+  )
+
+  return {
+    start: start.toISOString(),
+    end: end.toISOString()
+  }
+}
+
+function getTodaysDayOfWeek() {
+  const dayOfWeek = new Date().getDay()
+  return dayOfWeek == 0 ? 7 : dayOfWeek // JavaScript default Sunday = 0, but app uses Sunday = 7
+}
+
 async function tryLoadHabits() {
   try {
-    const currentDate = getTodaysDate()
+    const { start, end } = getTodaysDateRange()
+    const dayOfWeek = getTodaysDayOfWeek()
 
-    let data = await request(`/habits/date/${currentDate}`, {
-      method: 'GET'
+    const params = new URLSearchParams({
+      start,
+      end,
+      dayOfWeek
     })
-    habits.value = data.habits
+
+    const data = await request(
+      `/habits?${params.toString()}`,
+      {
+        method: 'GET'
+      }
+    )
+
+    habits.value = data.habits.map(habit => ({
+      ...habit,
+
+      /*
+       * isToday is based on the recurring schedule,
+       * not on the completion timestamp.
+       */
+      isToday: isHabitScheduledToday(habit)
+    }))
   } catch (err) {
     console.error('Error loading user habits: ', err)
   }
 }
 
+
 async function handleHabitToggle(habit) {
-  const newCompletedState = !habit.completed
   try {
-    const currentDate = getTodaysDate()
-    if (newCompletedState) { // Create habit completion on server
-      let data = await request(`/habits/${habit._id}/completions`, {
-        method: 'POST',
-        body: JSON.stringify({
-          date: currentDate
-        })
-      })
-    } else { // Delete habit completion on server
-      let data = await request(`/habits/${habit._id}/completions/${currentDate}`, {
-        method: 'DELETE'
-      })
+    if (habit.completed) {
+      if (!habit.completionId) {
+        console.error(
+          'Cannot delete habit completion: completion ID is missing'
+        )
+
+        return
+      }
+
+      await request(
+        `/habits/${habit._id}/completions/${habit.completionId}`,
+        {
+          method: 'DELETE'
+        }
+      )
+    } else {
+      const { start, end } = getTodaysDateRange()
+
+      await request(
+        `/habits/${habit._id}/completions`,
+        {
+          method: 'POST',
+
+          body: JSON.stringify({
+            start,
+            end
+          })
+        }
+      )
     }
-    habit.completed = newCompletedState
+
     await tryLoadHabits()
   } catch (err) {
-    console.error('Error handling habit toggle: ', err)
+    console.error(
+      'Error handling habit toggle: ',
+      err
+    )
   }
 }
-function formatDaysOfWeek(daysOfWeek) {
-	if (daysOfWeek.length == 0) {
-		return 'Not scheduled'
-	}
-	const dayNames = [
-		'Monday',
-		'Tuesday',
-		'Wednesday',
-		'Thursday',
-		'Friday',
-		'Saturday',
-		'Sunday'
-	]
-	
-	return daysOfWeek
-		.map(day => dayNames[day - 1])
-		.join(', ')
-}
-function getTodaysDate() {
-	const now = new Date()
 
-	return [
-		now.getFullYear(),
-		String(now.getMonth() + 1).padStart(2, '0'),
-		String(now.getDate()).padStart(2, '0')
-	].join('-')
+
+function isHabitScheduledToday(habit) {
+  if (!habit.daysOfWeek || habit.daysOfWeek.length === 0) {
+    return false
+  }
+
+  const dayOfWeek = new Date().getDay()
+
+  /*
+   * JavaScript:
+   * Sunday = 0
+   * Monday = 1
+   * ...
+   * Saturday = 6
+   *
+   * Our database:
+   * Monday = 1
+   * ...
+   * Sunday = 7
+   */
+  const databaseDayOfWeek =
+    dayOfWeek === 0
+      ? 7
+      : dayOfWeek
+
+  return habit.daysOfWeek.includes(
+    databaseDayOfWeek
+  )
+}
+
+
+function formatDaysOfWeek(daysOfWeek) {
+  if (daysOfWeek.length === 0) {
+    return 'Not scheduled'
+  }
+
+  const dayNames = [
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday',
+    'Sunday'
+  ]
+
+  return daysOfWeek
+    .map(day => dayNames[day - 1])
+    .join(', ')
 }
 </script>
+
 
 <style scoped>
 .habits-container {
@@ -345,6 +499,7 @@ function getTodaysDate() {
   font-weight: normal;
   margin-top: 6px;
 }
+
 
 /* Progress */
 
@@ -375,6 +530,7 @@ function getTodaysDate() {
   font-weight: bold;
   transition: width 0.3s ease;
 }
+
 
 /* Habits list */
 
@@ -416,6 +572,7 @@ function getTodaysDate() {
   color: #777;
 }
 
+
 /* Buttons */
 
 button {
@@ -443,6 +600,7 @@ button:hover {
 .habits-container > button:hover {
   background-color: #43a047;
 }
+
 
 /* Habit form */
 
@@ -491,6 +649,7 @@ button:hover {
   border-color: #4caf50;
 }
 
+
 /* Days */
 
 .habit-form form > div:has(input[type="checkbox"]) {
@@ -514,6 +673,7 @@ button:hover {
 .habit-form input[type="checkbox"] {
   margin-right: 5px;
 }
+
 
 /* Form buttons */
 

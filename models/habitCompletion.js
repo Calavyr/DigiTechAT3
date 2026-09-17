@@ -6,18 +6,17 @@ const habitCompletionSchema = new mongoose.Schema({
         required: true,
         ref: 'Habit'
     },
-    date: {
-        type: String,
-        required: true
-    },
+
     completedAt: {
         type: Date,
+        required: true,
         default: Date.now
     }
 })
-habitCompletionSchema.index( // Index by both habitId and date uniquely so no duplicates of habits on the same date
-    { habitId: 1, date: 1 },
-    { unique: true }
-)
+
+habitCompletionSchema.index({
+    habitId: 1,
+    completedAt: 1
+})
 
 module.exports = mongoose.model('HabitCompletion', habitCompletionSchema)

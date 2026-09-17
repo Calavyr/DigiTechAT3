@@ -1,6 +1,8 @@
-1. Add logout button to dashboard for testing
-2. Add habits page for users to add daily routines checklist thing
-3. Study so people can make study groups with other people, with timers and subjects and study stats like yeolpumta, maybe study group chat or something idfk
-4. Goals page for users to set long-term goals
-5. home page which is simplified view of daily checklist, goal progress, streak, etc.
-6. profile page for account/settings
+1. GET /study/stats to fetch study stats (total study time, number of sessions, average session length, by subject, by day) (fetch using a timestamp range)
+2. studygoals CRUD (progress linked to study sessions?)
+3. CRUD study tasks (completin can just be done by PATCH setting completed to true, unless want to track historical records)
+4. study groups somehow (create and find, randomly generated 6-character alphabetical string on creation used to join)
+5. Study so people can make study groups with other people, with timers and subjects and study stats like yeolpumta, maybe study group chat or something idfk
+6. Goals page for users to set long-term goals
+7. home page which is simplified view of daily checklist, goal progress, streak, etc.
+8. profile page for account/settings
