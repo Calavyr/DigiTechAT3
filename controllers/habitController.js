@@ -5,27 +5,25 @@ const HabitCompletion = require('../models/habitCompletion.js')
 exports.fetchUserHabits = async (req, res) => {
     try {
         const { userId } = req.user
-        const { start, end, dayOfWeek } = req.query
+        const { start, end, timezoneOffsetMinutes } = req.query
 
-        if (!start || !end || !dayOfWeek) {
+        if (!start || !end || timezoneOffsetMinutes === undefined) {
             return res.status(400).json({
-                message: 'Start, end and dayOfWeek are required'
+                message: 'Start, end and timezoneOffsetMinutes are required'
             })
         }
 
         const startDate = new Date(start)
         const endDate = new Date(end)
-        const numericDayOfWeek = Number(dayOfWeek)
+        const numericTimezoneOffset = Number(timezoneOffsetMinutes)
 
         if (
             Number.isNaN(startDate.getTime()) ||
             Number.isNaN(endDate.getTime()) ||
-            !Number.isInteger(numericDayOfWeek) ||
-            numericDayOfWeek < 1 ||
-            numericDayOfWeek > 7
+            !isValidTimezoneOffset(numericTimezoneOffset)
         ) {
             return res.status(400).json({
-                message: 'Invalid timestamp or dayOfWeek'
+                message: 'Invalid timestamp or timezoneOffsetMinutes'
             })
         }
 
@@ -64,7 +62,9 @@ exports.fetchUserHabits = async (req, res) => {
                 completed: Boolean(completion),
                 completionId: completion ? completion._id : null,
                 completedAt: completion ? completion.completedAt : null,
-                isToday: habit.daysOfWeek.includes(numericDayOfWeek)
+                isToday: habit.daysOfWeek.includes(
+                    getDayOfWeekFromDateRange(startDate, numericTimezoneOffset)
+                )
             }
         })
 
@@ -181,7 +181,7 @@ exports.deleteHabit = async (req, res) => {
 exports.completeHabit = async (req, res) => {
     try {
         const { habitId } = req.params
-        const { start, end } = req.body
+        const { start, end, completedAt, timezoneOffsetMinutes } = req.body
         const { userId } = req.user
 
 
@@ -197,19 +197,23 @@ exports.completeHabit = async (req, res) => {
         }
 
 
-        if (!start || !end) {
+        if (!start || !end || !completedAt || timezoneOffsetMinutes === undefined) {
             return res.status(400).json({
-                message: 'Start and end timestamps are required'
+                message: 'Start, end, completedAt and timezoneOffsetMinutes are required'
             })
         }
 
 
         const startDate = new Date(start)
         const endDate = new Date(end)
+        const completionDate = new Date(completedAt)
+        const numericTimezoneOffset = Number(timezoneOffsetMinutes)
 
         if (
             Number.isNaN(startDate.getTime()) ||
-            Number.isNaN(endDate.getTime())
+            Number.isNaN(endDate.getTime()) ||
+            Number.isNaN(completionDate.getTime()) ||
+            !isValidTimezoneOffset(numericTimezoneOffset)
         ) {
             return res.status(400).json({
                 message: 'Invalid start or end timestamp'
@@ -219,6 +223,20 @@ exports.completeHabit = async (req, res) => {
         if (startDate >= endDate) {
             return res.status(400).json({
                 message: 'Start timestamp must be before end timestamp'
+            })
+        }
+
+        if (completionDate < startDate || completionDate >= endDate) {
+            return res.status(400).json({
+                message: 'Completion timestamp must be within the requested local day'
+            })
+        }
+        if (
+            getLocalDateKey(completionDate, numericTimezoneOffset) !==
+            getLocalDateKey(startDate, numericTimezoneOffset)
+        ) {
+            return res.status(400).json({
+                message: 'Completion timestamp must match the requested local day'
             })
         }
 
@@ -250,7 +268,8 @@ exports.completeHabit = async (req, res) => {
          * MongoDB stores this Date as a UTC timestamp.
          */
         const habitCompletion = new HabitCompletion({
-            habitId: habitId
+            habitId: habitId,
+            completedAt: completionDate
         })
 
         await habitCompletion.save()
@@ -308,18 +327,26 @@ exports.deleteHabitCompletion = async (req, res) => {
 
 
 /*
- * Converts the requested UTC start timestamp into the
- * day-of-week used by the habit schedule.
- *
- * This works because the frontend constructs the timestamp
- * from the beginning of the user's local calendar day.
+ * Convert the absolute start timestamp to the client's local calendar day.
  */
-function getDayOfWeekFromDateRange(startDate) {
-    let dayOfWeek = startDate.getDay()
+function getDayOfWeekFromDateRange(startDate, timezoneOffsetMinutes) {
+    let dayOfWeek = new Date(
+        startDate.getTime() + timezoneOffsetMinutes * 60 * 1000
+    ).getUTCDay()
 
     if (dayOfWeek === 0) {
         dayOfWeek = 7
     }
 
     return dayOfWeek
+}
+
+function isValidTimezoneOffset(value) {
+    return Number.isInteger(value) && value >= -840 && value <= 840
+}
+
+function getLocalDateKey(date, timezoneOffsetMinutes) {
+    return new Date(date.getTime() + timezoneOffsetMinutes * 60 * 1000)
+        .toISOString()
+        .slice(0, 10)
 }

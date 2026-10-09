@@ -103,7 +103,7 @@
       <div class="stats-heading">
         <div>
           <h3>Study statistics</h3>
-          <p class="muted">Daily breakdown uses UTC dates.</p>
+          <p class="muted">Times are shown in your local time.</p>
         </div>
         <form class="range-form" @submit.prevent="loadStats">
           <label>
@@ -149,11 +149,11 @@
           </ul>
         </div>
         <div>
-          <h4>By day (UTC)</h4>
+          <h4>By day</h4>
           <p v-if="!studyStats.byDay.length" class="muted">No study time in this range.</p>
           <ul v-else class="stats-list">
             <li v-for="item in studyStats.byDay" :key="item.date">
-              <span>{{ formatUtcDate(item.date) }} <small>{{ item.sessionCount }} session{{ item.sessionCount === 1 ? '' : 's' }}</small></span>
+              <span>{{ formatLocalDate(item.date) }} <small>{{ item.sessionCount }} session{{ item.sessionCount === 1 ? '' : 's' }}</small></span>
               <strong>{{ formatDuration(item.totalStudyTime) }}</strong>
             </li>
           </ul>
@@ -230,14 +230,21 @@ onUnmounted(() => {
 
 async function loadStudyData() {
   errorMessage.value = ''
-  const { start, end } = getTodayRange()
-  const range = new URLSearchParams({ start, end })
+  const { start, end, timezoneOffsetMinutes } = getTodayRange()
+  const range = new URLSearchParams({
+    start,
+    end,
+    timezoneOffsetMinutes: String(timezoneOffsetMinutes)
+  })
   const statsRange = getStatsRangeParams()
+  const activeRange = new URLSearchParams({
+    timezoneOffsetMinutes: String(-new Date().getTimezoneOffset())
+  })
 
   const results = await Promise.allSettled([
     request('/subjects', { method: 'GET' }),
     request(`/study/sessions?${range.toString()}`, { method: 'GET' }),
-    request('/study/sessions/active', { method: 'GET' }),
+    request(`/study/sessions/active`, { method: 'GET' }),
     request(`/study/stats?${statsRange.toString()}`, { method: 'GET' })
   ])
 
@@ -371,7 +378,9 @@ async function startSession(subject) {
       method: 'POST',
       body: JSON.stringify({
         subjectId: subjectId(subject),
-        topic: (topics[subjectId(subject)] || '').trim()
+        topic: (topics[subjectId(subject)] || '').trim(),
+        startedAt: formatLocalTimestamp(new Date()),
+        timezoneOffsetMinutes: -new Date().getTimezoneOffset()
       })
     })
 
@@ -399,7 +408,13 @@ async function endSession() {
   try {
     const response = await request(
       `/study/sessions/${activeSession.value._id || activeSession.value.id}/end`,
-      { method: 'POST' }
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          endedAt: formatLocalTimestamp(new Date()),
+          timezoneOffsetMinutes: -new Date().getTimezoneOffset()
+        })
+      }
     )
 
     if (response.queued) {
@@ -420,7 +435,11 @@ function getTodayRange() {
   const now = new Date()
   const start = new Date(now.getFullYear(), now.getMonth(), now.getDate())
   const end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
-  return { start: start.toISOString(), end: end.toISOString() }
+  return {
+    start: formatLocalTimestamp(start),
+    end: formatLocalTimestamp(end),
+    timezoneOffsetMinutes: getTimezoneOffsetMinutes(start)
+  }
 }
 
 function getStatsRangeParams() {
@@ -431,7 +450,29 @@ function getStatsRangeParams() {
   const start = new Date(`${statsFromDate.value}T00:00:00`)
   const end = new Date(`${statsToDate.value}T00:00:00`)
   end.setDate(end.getDate() + 1)
-  return new URLSearchParams({ start: start.toISOString(), end: end.toISOString() })
+  return new URLSearchParams({
+    start: formatLocalTimestamp(start),
+    end: formatLocalTimestamp(end),
+    timezoneOffsetMinutes: String(getTimezoneOffsetMinutes(start))
+  })
+}
+
+function getTimezoneOffsetMinutes(dateValue) {
+  return -dateValue.getTimezoneOffset()
+}
+
+function formatLocalTimestamp(dateValue) {
+  const offset = getTimezoneOffsetMinutes(dateValue)
+  const sign = offset >= 0 ? '+' : '-'
+  const absoluteOffset = Math.abs(offset)
+  const offsetHours = String(Math.floor(absoluteOffset / 60)).padStart(2, '0')
+  const offsetMinutes = String(absoluteOffset % 60).padStart(2, '0')
+  const datePart = getLocalDateInput(dateValue)
+  const timePart = [dateValue.getHours(), dateValue.getMinutes(), dateValue.getSeconds()]
+    .map(part => String(part).padStart(2, '0'))
+    .join(':')
+  const milliseconds = String(dateValue.getMilliseconds()).padStart(3, '0')
+  return `${datePart}T${timePart}.${milliseconds}${sign}${offsetHours}:${offsetMinutes}`
 }
 
 function getLocalDateInput(dateValue) {
@@ -463,9 +504,10 @@ function formatTime(value) {
   return new Date(value).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
 }
 
-function formatUtcDate(value) {
-  return new Date(`${value}T00:00:00Z`).toLocaleDateString(undefined, {
-    timeZone: 'UTC', month: 'short', day: 'numeric', year: 'numeric'
+function formatLocalDate(value) {
+  const [year, month, day] = value.split('-').map(Number)
+  return new Date(year, month - 1, day).toLocaleDateString(undefined, {
+    month: 'short', day: 'numeric', year: 'numeric'
   })
 }
 
@@ -485,95 +527,296 @@ function formatDuration(value) {
   max-width: 800px;
   margin: 0 auto;
   padding: 32px 24px;
+  font-family: Arial, sans-serif;
 }
 
-.page-header, .subject-heading, .active-session, .session-card, .form-actions {
+.page-header,
+.subject-heading,
+.active-session,
+.session-card,
+.form-actions {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 12px;
 }
 
-.page-header { margin-bottom: 24px; }
-.page-header h2 { margin: 0; font-size: 32px; }
-.date-label, .muted, .empty-state { color: #6b7280; }
-.date-label { margin-top: 4px; }
+.page-header {
+  margin-bottom: 24px;
+}
 
-.subjects-section, .history-section { margin-top: 32px; }
-.subjects-section > h3, .history-section > h3 { margin-bottom: 14px; }
-.subjects-list, .sessions-list { display: flex; flex-direction: column; gap: 12px; }
-.stats-section { margin-top: 32px; padding-top: 24px; border-top: 1px solid #e1e5e9; }
-.stats-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; margin-bottom: 16px; }
-.stats-heading h3 { margin: 0; }
-.stats-heading p { margin-top: 4px; font-size: 13px; }
-.range-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; }
-.range-form label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 600; }
-.range-form input { padding: 7px 8px; border: 1px solid #ccc; border-radius: 6px; font: inherit; }
-.stat-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
-.stat-card { display: flex; flex-direction: column; gap: 4px; padding: 16px; border: 1px solid #e1e5e9; border-radius: 9px; background: #fff; }
-.stat-card span { color: #6b7280; font-size: 13px; }
-.stat-card strong { font-size: 22px; }
-.breakdown-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; margin-top: 22px; }
-.breakdown-grid h4 { margin-bottom: 8px; }
-.stats-list { margin: 0; padding: 0; list-style: none; }
-.stats-list li { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid #edf0f2; }
-.stats-list li span { display: flex; flex-direction: column; }
-.stats-list small { color: #6b7280; }
-.stats-list strong { white-space: nowrap; }
+.page-header h2 {
+  margin: 0;
+  font-size: 32px;
+}
 
-.subject-card, .session-card, .subject-form {
+.date-label,
+.muted,
+.empty-state {
+  color: #666;
+}
+
+.date-label {
+  margin-top: 4px;
+}
+
+.subjects-section,
+.history-section,
+.stats-section {
+  margin-top: 32px;
+}
+
+.subjects-section > h3,
+.history-section > h3,
+.stats-heading {
+  margin-bottom: 14px;
+}
+
+.subjects-list,
+.sessions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.subject-card,
+.session-card,
+.subject-form,
+.stat-card {
   padding: 18px;
   background: #fff;
-  border: 1px solid #e1e5e9;
-  border-radius: 10px;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+  border: 1px solid #ddd;
+  border-radius: 8px;
 }
 
-.subject-heading h4, .session-card h4 { margin: 0; font-size: 18px; }
-.subject-actions { display: flex; gap: 8px; }
-.start-form { margin-top: 16px; }
-.start-form label, .subject-form label { display: block; margin-bottom: 6px; font-size: 14px; font-weight: 600; }
-.start-controls { display: flex; gap: 10px; }
-input[type="text"] { min-width: 0; flex: 1; padding: 10px 12px; border: 1px solid #ccc; border-radius: 6px; font: inherit; }
-input[type="text"]:focus { outline: none; border-color: #4caf50; }
-.subject-form { margin: 20px 0; background: #f8f9fa; }
-.subject-form h3 { margin: 0 0 16px; }
-.subject-form form { display: flex; flex-direction: column; }
-.form-actions { justify-content: flex-start; margin-top: 16px; }
+.subject-heading h4,
+.session-card h4 {
+  margin: 0;
+  font-size: 18px;
+}
 
-button { border: 0; border-radius: 7px; padding: 9px 14px; font-size: 14px; cursor: pointer; background: #eee; }
-button:hover:not(:disabled) { background: #ddd; }
-button:disabled { opacity: .55; cursor: not-allowed; }
-.primary-button { background: #4caf50; color: white; font-weight: 600; }
-.primary-button:hover:not(:disabled) { background: #43a047; }
-.end-button { background: #d9534f; color: #fff; font-weight: 600; }
-.text-danger { color: #b42318; }
+.subject-actions,
+.start-controls,
+.form-actions {
+  display: flex;
+  gap: 10px;
+}
 
-.active-session { margin: 24px 0; padding: 20px; border-radius: 10px; background: #eef8ef; border: 1px solid #b7dfbb; }
-.section-eyebrow { margin: 0 0 4px; color: #43864a; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
-.active-session h3 { margin: 0; }
-.active-session p { margin-bottom: 4px; }
-.timer { font-size: 28px; font-variant-numeric: tabular-nums; font-weight: 700; }
-.session-card { align-items: flex-start; }
-.session-card p { margin: 4px 0 0; }
-.session-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; color: #555; text-align: right; }
-.empty-state { padding: 18px; border: 1px dashed #cbd5e1; border-radius: 8px; }
-.message { margin: 12px 0; padding: 10px 12px; border-radius: 6px; }
-.error-message { color: #8c1d18; background: #fdecea; }
-.success-message { color: #246b32; background: #eaf7ec; }
+.start-form {
+  margin-top: 16px;
+}
 
-@media (max-width: 600px) {
-  .study-container { padding: 24px 16px; }
-  .page-header { align-items: flex-start; }
-  .page-header h2 { font-size: 28px; }
-  .start-controls { flex-direction: column; }
-  .start-controls button { align-self: flex-start; }
-  .subject-heading { align-items: flex-start; }
-  .active-session { align-items: flex-start; flex-direction: column; }
-  .session-card { flex-direction: column; }
-  .session-meta { align-items: flex-start; text-align: left; }
-  .stats-heading { flex-direction: column; }
-  .stat-cards { grid-template-columns: 1fr; }
-  .breakdown-grid { grid-template-columns: 1fr; }
+.start-form label,
+.subject-form label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 14px;
+  font-weight: bold;
+}
+
+input[type="text"] {
+  min-width: 0;
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  font: inherit;
+}
+
+.subject-form {
+  margin: 20px 0;
+  background: #f8f9fa;
+}
+
+.subject-form h3 {
+  margin: 0 0 16px;
+}
+
+.subject-form form {
+  display: flex;
+  flex-direction: column;
+}
+
+.form-actions {
+  justify-content: flex-start;
+  margin-top: 16px;
+}
+
+.stats-section {
+  padding-top: 20px;
+  border-top: 1px solid #ddd;
+}
+
+.stats-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.stats-heading h3 {
+  margin: 0;
+}
+
+.range-form,
+.stat-cards,
+.breakdown-grid {
+  display: flex;
+  gap: 12px;
+}
+
+.range-form {
+  align-items: flex-end;
+}
+
+.range-form label {
+  display: flex;
+  flex-direction: column;
+}
+
+.range-form input {
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+}
+
+.stat-cards {
+  margin-top: 16px;
+}
+
+.stat-card {
+  flex: 1;
+  background: #f8f9fa;
+}
+
+.stat-card span,
+.stats-list small {
+  color: #666;
+}
+
+.stat-card strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 20px;
+}
+
+.breakdown-grid {
+  margin-top: 20px;
+}
+
+.breakdown-grid > div {
+  flex: 1;
+}
+
+.stats-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.stats-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 0;
+  border-bottom: 1px solid #eee;
+}
+
+.stats-list li span {
+  display: flex;
+  flex-direction: column;
+}
+
+.active-session {
+  margin: 24px 0;
+  padding: 18px;
+  border: 1px solid #b7dfbb;
+  border-radius: 8px;
+  background: #eef8ef;
+}
+
+.active-session h3 {
+  margin: 0;
+}
+
+.active-session p {
+  margin-bottom: 4px;
+}
+
+.section-eyebrow {
+  margin: 0 0 4px;
+  color: #43864a;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.timer {
+  font-size: 26px;
+  font-weight: bold;
+}
+
+.session-card {
+  align-items: flex-start;
+}
+
+.session-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  color: #555;
+}
+
+.empty-state {
+  padding: 16px;
+  border: 1px dashed #ccc;
+  border-radius: 6px;
+}
+
+.message {
+  margin: 12px 0;
+  padding: 10px 12px;
+}
+
+.error-message {
+  color: #8c1d18;
+  background: #fdecea;
+}
+
+.success-message {
+  color: #246b32;
+  background: #eaf7ec;
+}
+
+button {
+  border: none;
+  border-radius: 6px;
+  padding: 9px 14px;
+  font-size: 14px;
+  cursor: pointer;
+  background: #eee;
+}
+
+button:hover {
+  background: #ddd;
+}
+
+button:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+}
+
+.primary-button {
+  background: #4caf50;
+  color: white;
+  font-weight: bold;
+}
+
+.end-button {
+  background: #d9534f;
+  color: white;
+  font-weight: bold;
+}
+
+.text-danger {
+  color: #b42318;
 }
 </style>

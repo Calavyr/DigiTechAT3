@@ -38,7 +38,7 @@ const {
 
 // Habits
 
-// Fetch habits and completions within a UTC timestamp range
+// Time-range requests include timezoneOffsetMinutes (minutes east of UTC).
 router.get('/habits', fetchUserHabits)
 
 router.post('/habits', createHabit)

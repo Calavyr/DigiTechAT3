@@ -5,13 +5,18 @@ const Subject = require('../models/subject.js')
 exports.startStudySession = async (req, res) => {
     try {
         const { userId } = req.user
-        const { subjectId } = req.body
+        const { subjectId, startedAt, timezoneOffsetMinutes } = req.body
+        const startedAtDate = new Date(startedAt)
+        const numericTimezoneOffset = Number(timezoneOffsetMinutes)
         const topic = typeof req.body.topic === 'string' && req.body.topic.trim()
             ? req.body.topic.trim()
             : undefined
 
         if (!subjectId) {
             return res.status(400).json({ message: 'A subject is required to start a study session' })
+        }
+        if (!startedAt || Number.isNaN(startedAtDate.getTime()) || !isValidTimezoneOffset(numericTimezoneOffset)) {
+            return res.status(400).json({ message: 'A valid startedAt timestamp and timezoneOffsetMinutes are required' })
         }
 
         const subject = await Subject.findOne({ _id: subjectId, userId })
@@ -30,7 +35,7 @@ exports.startStudySession = async (req, res) => {
             })
         }
 
-        const studySession = new StudySession({ userId, subjectId, topic, startedAt: new Date() })
+        const studySession = new StudySession({ userId, subjectId, topic, startedAt: startedAtDate })
         await studySession.save()
 
         return res.status(201).json({ studySession })
@@ -43,6 +48,13 @@ exports.endStudySession = async (req, res) => {
     try {
         const { userId } = req.user
         const { sessionId } = req.params
+        const { endedAt, timezoneOffsetMinutes } = req.body
+        const endedAtDate = new Date(endedAt)
+        const numericTimezoneOffset = Number(timezoneOffsetMinutes)
+
+        if (!endedAt || Number.isNaN(endedAtDate.getTime()) || !isValidTimezoneOffset(numericTimezoneOffset)) {
+            return res.status(400).json({ message: 'A valid endedAt timestamp and timezoneOffsetMinutes are required' })
+        }
         
         const studySession = await StudySession.findOne({ _id: sessionId, userId })
         if (!studySession) {
@@ -51,7 +63,10 @@ exports.endStudySession = async (req, res) => {
         if (studySession.endedAt != null) {
             return res.status(400).json({ message: 'Study session already ended' })
         }
-        studySession.endedAt = new Date()
+        if (endedAtDate < studySession.startedAt) {
+            return res.status(400).json({ message: 'End timestamp must be after the session start' })
+        }
+        studySession.endedAt = endedAtDate
         studySession.duration = (studySession.endedAt - studySession.startedAt)/1000
         await studySession.save()
 
@@ -64,20 +79,22 @@ exports.endStudySession = async (req, res) => {
 exports.fetchUserStudySessions = async (req, res) => {
     try {
         const { userId } = req.user
-        const { start, end } = req.query
+        const { start, end, timezoneOffsetMinutes } = req.query
 
-        if (!start || !end) {
+        if (!start || !end || timezoneOffsetMinutes === undefined) {
             return res.status(400).json({
-                message: 'Start and end are required'
+                message: 'Start, end and timezoneOffsetMinutes are required'
             })
         }
 
         const startedAt = new Date(start)
         const endedAt = new Date(end)
+        const numericTimezoneOffset = Number(timezoneOffsetMinutes)
 
         if (
             Number.isNaN(startedAt.getTime()) ||
-            Number.isNaN(endedAt.getTime())
+            Number.isNaN(endedAt.getTime()) ||
+            !isValidTimezoneOffset(numericTimezoneOffset)
         ) {
             return res.status(400).json({
                 message: 'Invalid timestamp'
@@ -126,16 +143,20 @@ exports.fetchUserStudySessions = async (req, res) => {
 exports.fetchStudyStats = async (req, res) => {
     try {
         const { userId } = req.user
-        const { start, end } = req.query
+        const { start, end, timezoneOffsetMinutes } = req.query
 
-        if (!start || !end) {
-            return res.status(400).json({ message: 'Start and end are required' })
+        if (!start || !end || timezoneOffsetMinutes === undefined) {
+            return res.status(400).json({ message: 'Start, end and timezoneOffsetMinutes are required' })
         }
 
         const rangeStart = new Date(start)
         const rangeEnd = new Date(end)
+        const numericTimezoneOffset = Number(timezoneOffsetMinutes)
         if (Number.isNaN(rangeStart.getTime()) || Number.isNaN(rangeEnd.getTime())) {
             return res.status(400).json({ message: 'Invalid timestamp' })
+        }
+        if (!isValidTimezoneOffset(numericTimezoneOffset)) {
+            return res.status(400).json({ message: 'Invalid timezoneOffsetMinutes' })
         }
         if (rangeStart >= rangeEnd) {
             return res.status(400).json({ message: 'Start timestamp must be before end timestamp' })
@@ -182,15 +203,16 @@ exports.fetchStudyStats = async (req, res) => {
 
             let cursor = clippedStart
             while (cursor < clippedEnd) {
-                const cursorDate = new Date(cursor)
-                const dayStart = Date.UTC(
-                    cursorDate.getUTCFullYear(),
-                    cursorDate.getUTCMonth(),
-                    cursorDate.getUTCDate()
+                const localCursor = cursor + numericTimezoneOffset * 60 * 1000
+                const localDate = new Date(localCursor)
+                const localDayStart = Date.UTC(
+                    localDate.getUTCFullYear(),
+                    localDate.getUTCMonth(),
+                    localDate.getUTCDate()
                 )
-                const nextDay = dayStart + 24 * 60 * 60 * 1000
+                const nextDay = localDayStart + 24 * 60 * 60 * 1000 - numericTimezoneOffset * 60 * 1000
                 const segmentEnd = Math.min(clippedEnd, nextDay)
-                const day = new Date(dayStart).toISOString().slice(0, 10)
+                const day = new Date(localDayStart).toISOString().slice(0, 10)
                 const dayStats = byDay.get(day) || { date: day, totalStudyTime: 0, sessionCount: 0 }
                 dayStats.totalStudyTime += (segmentEnd - cursor) / 1000
                 dayStats.sessionCount += 1
@@ -233,4 +255,8 @@ exports.fetchActiveStudySession = async (req, res) => {
             message: 'Unexpected error on server'
         })
     }
+}
+
+function isValidTimezoneOffset(value) {
+    return Number.isInteger(value) && value >= -840 && value <= 840
 }

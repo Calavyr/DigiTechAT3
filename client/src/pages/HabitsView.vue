@@ -225,8 +225,6 @@ const daysOfWeek = [
 
 
 onMounted(() => {
-  console.log('HabitsVue.vue mounted')
-
   tryLoadHabits()
 })
 
@@ -314,19 +312,7 @@ async function deleteHabit(habit) {
 }
 
 
-/*
- * Get the UTC timestamps representing the beginning
- * and end of today's local calendar day.
- *
- * For example, if the browser is in Adelaide:
- *
- * local:
- * 17/09/2026 00:00
- *       ->
- * 18/09/2026 00:00
- *
- * These are then converted to UTC using toISOString().
- */
+/* Get local calendar-day boundaries with their UTC offsets attached. */
 function getTodaysDateRange() {
   const now = new Date()
 
@@ -343,25 +329,36 @@ function getTodaysDateRange() {
   )
 
   return {
-    start: start.toISOString(),
-    end: end.toISOString()
+    start: formatLocalTimestamp(start),
+    end: formatLocalTimestamp(end),
+    timezoneOffsetMinutes: -start.getTimezoneOffset()
   }
 }
 
-function getTodaysDayOfWeek() {
-  const dayOfWeek = new Date().getDay()
-  return dayOfWeek == 0 ? 7 : dayOfWeek // JavaScript default Sunday = 0, but app uses Sunday = 7
+function formatLocalTimestamp(dateValue) {
+  const offset = -dateValue.getTimezoneOffset()
+  const sign = offset >= 0 ? '+' : '-'
+  const absoluteOffset = Math.abs(offset)
+  const offsetHours = String(Math.floor(absoluteOffset / 60)).padStart(2, '0')
+  const offsetMinutes = String(absoluteOffset % 60).padStart(2, '0')
+  const datePart = [dateValue.getFullYear(), dateValue.getMonth() + 1, dateValue.getDate()]
+    .map((part, index) => String(part).padStart(index === 0 ? 4 : 2, '0'))
+    .join('-')
+  const timePart = [dateValue.getHours(), dateValue.getMinutes(), dateValue.getSeconds()]
+    .map(part => String(part).padStart(2, '0'))
+    .join(':')
+  const milliseconds = String(dateValue.getMilliseconds()).padStart(3, '0')
+  return `${datePart}T${timePart}.${milliseconds}${sign}${offsetHours}:${offsetMinutes}`
 }
 
 async function tryLoadHabits() {
   try {
-    const { start, end } = getTodaysDateRange()
-    const dayOfWeek = getTodaysDayOfWeek()
+    const { start, end, timezoneOffsetMinutes } = getTodaysDateRange()
 
     const params = new URLSearchParams({
       start,
       end,
-      dayOfWeek
+      timezoneOffsetMinutes: String(timezoneOffsetMinutes)
     })
 
     const data = await request(
@@ -404,7 +401,7 @@ async function handleHabitToggle(habit) {
         }
       )
     } else {
-      const { start, end } = getTodaysDateRange()
+      const { start, end, timezoneOffsetMinutes } = getTodaysDateRange()
 
       await request(
         `/habits/${habit._id}/completions`,
@@ -413,7 +410,9 @@ async function handleHabitToggle(habit) {
 
           body: JSON.stringify({
             start,
-            end
+            end,
+            timezoneOffsetMinutes,
+            completedAt: formatLocalTimestamp(new Date())
           })
         }
       )

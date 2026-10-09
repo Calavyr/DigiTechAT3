@@ -4,5 +4,3 @@
 4. study groups somehow (create and find, randomly generated 6-character alphabetical string on creation used to join)
 5. Study so people can make study groups with other people, with timers and subjects and study stats like yeolpumta, maybe study group chat or something idfk
 6. Goals page for users to set long-term goals
-7. home page which is simplified view of daily checklist, goal progress, streak, etc.
-8. profile page for account/settings
