@@ -71,6 +71,21 @@ exports.registerUser = async (req, res) => {
                 message: 'Username can only contain alphanumeric characters and underscores. No spaces or special symbols allowed.' 
             })
         }
+        const users = await User.find({ $or: [{ username }, { email }] })
+
+        const usernameInUse = users.some(user => user.username === username)
+        const emailInUse = users.some(user => user.email === email)
+
+        if (usernameInUse || emailInUse) {
+            const conflicts = []
+
+            if (usernameInUse) conflicts.push('Username already in use.')
+            if (emailInUse) conflicts.push('Email already in use.')
+
+            return res.status(400).json({
+                message: conflicts.join(' ')
+            })
+        }
 
         let randomString = generateRandomString(20)
         while (verificationEmailIds[randomString]) {
