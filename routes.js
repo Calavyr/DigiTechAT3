@@ -35,6 +35,18 @@ const {
     fetchActiveStudySession
 } = require('./controllers/studySessionController')
 
+const {
+    fetchUserStudyGoals,
+    createStudyGoal,
+    getStudyGoal,
+    editStudyGoal,
+    deleteStudyGoal,
+    fetchGoalTasks,
+    createGoalTask,
+    editStudyTask,
+    deleteStudyTask
+} = require('./controllers/goalsController')
+
 
 // Habits
 
@@ -75,6 +87,25 @@ router.delete('/subjects/:subjectId', deleteSubject)
 
 // Study sessions
 router.get('/study/stats', fetchStudyStats)
+
+// Study goals and checklist tasks
+router.get('/study/goals', fetchUserStudyGoals)
+
+router.post('/study/goals', createStudyGoal)
+
+router.get('/study/goals/:goalId', getStudyGoal)
+
+router.patch('/study/goals/:goalId', editStudyGoal)
+
+router.delete('/study/goals/:goalId', deleteStudyGoal)
+
+router.get('/study/goals/:goalId/tasks', fetchGoalTasks)
+
+router.post('/study/goals/:goalId/tasks', createGoalTask)
+
+router.patch('/study/tasks/:taskId', editStudyTask)
+
+router.delete('/study/tasks/:taskId', deleteStudyTask)
 
 router.post('/study/sessions', startStudySession)
 
