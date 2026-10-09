@@ -49,6 +49,7 @@ const {
 
 const {
     fetchStudyGroups,
+    fetchStudyGroupMembers,
     createStudyGroup,
     joinStudyGroup,
     editStudyGroup,
@@ -135,6 +136,8 @@ router.get('/study-groups', fetchStudyGroups)
 router.post('/study-groups', createStudyGroup)
 
 router.post('/study-groups/join', joinStudyGroup)
+
+router.get('/study-groups/:groupId/members', fetchStudyGroupMembers)
 
 router.patch('/study-groups/:groupId', editStudyGroup)
 

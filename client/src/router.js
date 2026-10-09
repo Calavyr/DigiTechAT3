@@ -63,6 +63,12 @@ const routes = [
         meta: { requiresAuth: true }
     },
     {
+        path: '/study-group/:groupId',
+        name: 'study-group',
+        component: () => import('./pages/StudyGroupView.vue'),
+        meta: { requiresAuth: true }
+    },
+    {
         path: '/profile', 
         name: 'profile', 
         component: () => import('./pages/ProfileView.vue'), 

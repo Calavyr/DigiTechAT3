@@ -60,11 +60,11 @@
         :key="getGroupId(studyGroup)"
         class="study-group"
       >
-        <div>
+        <router-link :to="`/study-group/${getGroupId(studyGroup)}`" class="group-details-link">
           <h4>{{ studyGroup.name }}</h4>
           <p>Join code: <strong>{{ studyGroup.joinCode }}</strong></p>
           <p>{{ studyGroup.memberIds.length }} member{{ studyGroup.memberIds.length === 1 ? '' : 's' }}</p>
-        </div>
+        </router-link>
 
         <div class="group-actions">
           <template v-if="isGroupCreator(studyGroup)">
@@ -329,6 +329,16 @@ function isGroupCreator(studyGroup) {
   border: 1px solid #e1e5e9;
   border-radius: 8px;
   background: white;
+}
+
+.group-details-link {
+  flex: 1;
+  color: inherit;
+  text-decoration: none;
+}
+
+.group-details-link:hover h4 {
+  color: #378a40;
 }
 
 .study-group h4,
