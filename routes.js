@@ -31,6 +31,7 @@ const {
     startStudySession,
     endStudySession,
     fetchUserStudySessions,
+    fetchStudyStats,
     fetchActiveStudySession
 } = require('./controllers/studySessionController')
 
@@ -73,6 +74,8 @@ router.delete('/subjects/:subjectId', deleteSubject)
 
 
 // Study sessions
+router.get('/study/stats', fetchStudyStats)
+
 router.post('/study/sessions', startStudySession)
 
 router.post('/study/sessions/:sessionId/end', endStudySession)

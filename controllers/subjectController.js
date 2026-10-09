@@ -75,7 +75,7 @@ exports.deleteSubject = async (req, res) => {
         const { userId } = req.user
         const { subjectId } = req.params
         
-        const deletedSubject = Subject.deleteOne({ _id: subjectId, userId })
+        const deletedSubject = await Subject.deleteOne({ _id: subjectId, userId })
         
         if (deletedSubject.deletedCount > 0) {
             return res.status(204).send()
