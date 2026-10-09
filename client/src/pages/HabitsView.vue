@@ -322,7 +322,7 @@ async function deleteHabit(habit) {
  *
  * local:
  * 17/09/2026 00:00
- *        ↓
+ *       ->
  * 18/09/2026 00:00
  *
  * These are then converted to UTC using toISOString().

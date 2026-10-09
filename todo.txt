@@ -1,3 +1,9 @@
+Add offline functionality to request wrapper
+Check type of request, if get, return cached from local database
+If post/patch/put/delete/etc. queue request in outbox to be processed once connected to internet
+
+
+0. Add a loading indicator when waiting for response from server on all the pages (loading mouse icon, stop from interacting with other buttons, etc. just like login/register pages)
 1. GET /study/stats to fetch study stats (total study time, number of sessions, average session length, by subject, by day) (fetch using a timestamp range)
 2. studygoals CRUD (progress linked to study sessions?)
 3. CRUD study tasks (completin can just be done by PATCH setting completed to true, unless want to track historical records)
