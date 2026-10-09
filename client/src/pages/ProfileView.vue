@@ -1,6 +1,9 @@
 <template>
   <div class="profile-container">
-    <h2>Profile</h2>
+    <header class="page-header">
+      <h2>Profile</h2>
+      <h3>{{ todayDate }}</h3>
+    </header>
 
     <section class="profile-section">
       <h3>Account information</h3>
@@ -42,6 +45,7 @@ import { authState } from '@/services/authState.js'
 const router = useRouter()
 const isLoggingOut = ref(false)
 const errorMessage = ref('')
+const todayDate = new Date().toLocaleDateString('en-GB')
 
 async function logout() {
   isLoggingOut.value = true
@@ -70,6 +74,17 @@ async function logout() {
   margin: 0 auto;
   padding: 32px 24px;
   font-family: Arial, sans-serif;
+}
+
+.page-header h2 {
+  margin: 0;
+  font-size: 32px;
+}
+
+.page-header h3 {
+  margin: 6px 0 0;
+  color: #666;
+  font-weight: normal;
 }
 
 .profile-section {

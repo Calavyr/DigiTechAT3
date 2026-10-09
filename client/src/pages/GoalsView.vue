@@ -3,7 +3,7 @@
     <header class="page-header">
       <div>
         <h2>Study goals</h2>
-        <p>Set a target and keep track of your progress.</p>
+        <h3 class="date-label">{{ todayDate }}</h3>
       </div>
       <button class="primary-button" @click="openCreateForm">Add goal</button>
     </header>
@@ -160,6 +160,7 @@ import { onMounted, reactive, ref } from 'vue'
 import { request } from '@/services/api.js'
 
 const studyGoals = ref([])
+const todayDate = new Date().toLocaleDateString('en-GB')
 const subjects = ref([])
 const showGoalForm = ref(false)
 const editingGoal = ref(null)
@@ -502,9 +503,18 @@ function formatDuration(seconds) {
   margin: 0;
 }
 
-.page-header p,
+.page-header h2 {
+  font-size: 32px;
+}
+
+.date-label,
 .goal-description {
   color: #666;
+}
+
+.date-label {
+  margin: 6px 0 0;
+  font-weight: normal;
 }
 
 .goal-form,

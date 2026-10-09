@@ -3,7 +3,7 @@
     <header class="page-header">
       <div>
         <h2>Study</h2>
-        <p class="date-label">{{ date }}</p>
+        <h3 class="date-label">{{ date }}</h3>
       </div>
       <button class="primary-button" @click="openCreateForm">
         Add subject
@@ -557,7 +557,8 @@ function formatDuration(value) {
 }
 
 .date-label {
-  margin-top: 4px;
+  margin: 6px 0 0;
+  font-weight: normal;
 }
 
 .subjects-section,

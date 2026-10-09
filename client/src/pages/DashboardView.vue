@@ -2,9 +2,8 @@
   <div class="dashboard-container">
     <header class="dashboard-header">
       <div>
-        <p class="eyebrow">Your day at a glance</p>
         <h2>Welcome {{ authState.user?.username || 'back' }}</h2>
-        <p class="today-date">{{ todayLabel }}</p>
+        <h3 class="today-date">{{ todayLabel }}</h3>
       </div>
       <button class="refresh-button" :disabled="isLoading" @click="loadDashboard">
         {{ isLoading ? 'Refreshing…' : 'Refresh' }}
@@ -115,9 +114,7 @@ const pendingHabitIds = ref(new Set())
 const togglingHabitIds = ref(new Set())
 
 const now = new Date()
-const todayLabel = now.toLocaleDateString(undefined, {
-  weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
-})
+const todayLabel = now.toLocaleDateString('en-GB')
 
 const todaysHabits = computed(() => habits.value.filter(habit => habit.isToday))
 const completedCount = computed(() => todaysHabits.value.filter(habit => habit.completed).length)
@@ -321,7 +318,7 @@ function formatDuration(value) {
 
 .dashboard-header h2 {
   margin: 0;
-  font-size: 30px;
+  font-size: 32px;
 }
 
 .eyebrow,
@@ -340,6 +337,12 @@ function formatDuration(value) {
   font-size: 12px;
   font-weight: bold;
   text-transform: uppercase;
+}
+
+.today-date {
+  margin: 6px 0 0;
+  font-size: 1.17em;
+  font-weight: normal;
 }
 
 .dashboard-grid {
