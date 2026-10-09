@@ -1,6 +1,7 @@
 const fs = require('fs')
 const StudySession = require('../models/studySession.js')
 const Subject = require('../models/subject.js')
+const websocketController = require('./websocketController.js')
 
 exports.startStudySession = async (req, res) => {
     try {
@@ -37,6 +38,7 @@ exports.startStudySession = async (req, res) => {
 
         const studySession = new StudySession({ userId, subjectId, topic, startedAt: startedAtDate })
         await studySession.save()
+        websocketController.notifyStudyGroupMembers(userId)
 
         return res.status(201).json({ studySession })
     } catch (err) {
@@ -69,6 +71,7 @@ exports.endStudySession = async (req, res) => {
         studySession.endedAt = endedAtDate
         studySession.duration = (studySession.endedAt - studySession.startedAt)/1000
         await studySession.save()
+        websocketController.notifyStudyGroupMembers(userId)
 
         return res.status(200).json({ studySession })    
     } catch (err) {

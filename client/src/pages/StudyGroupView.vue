@@ -35,7 +35,7 @@
               {{ member.username }}
               <span v-if="member.userId === authState.user?.userId">(you)</span>
             </h4>
-            <strong>{{ formatDuration(member.weeklyStudyTime) }}</strong>
+            <strong>{{ formatDuration(displayWeeklyStudyTime(member)) }}</strong>
           </div>
 
           <p>{{ member.sessionCount }} study session{{ member.sessionCount === 1 ? '' : 's' }} this week</p>
@@ -58,29 +58,49 @@
 
 <script setup>
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
+import { io } from 'socket.io-client'
 import { request } from '@/services/api.js'
 import { authState } from '@/services/authState.js'
 
 
 const route = useRoute()
+const router = useRouter()
 const date = ref(new Date().toLocaleDateString('en-GB'))
 const studyGroup = ref(null)
 const members = ref([])
 const now = ref(Date.now())
+const activityUpdatedAt = ref(Date.now())
 const isLoading = ref(false)
 const errorMessage = ref('')
-let refreshTimer
+let socket
 let clockTimer
+let loadRequestNumber = 0
 
 
 const groupId = computed(() => route.params.groupId)
-watch(groupId, loadMembers)
+watch(groupId, (nextGroupId, previousGroupId) => {
+  studyGroup.value = null
+  members.value = []
+  loadMembers()
+
+  if (socket?.connected) {
+    if (previousGroupId) socket.emit('leaveStudyGroup', previousGroupId)
+    joinGroupRoom()
+  }
+})
 
 
 onMounted(() => {
   loadMembers()
-  refreshTimer = window.setInterval(loadMembers, 15000)
+  socket = io({ withCredentials: true })
+  socket.on('connect', joinGroupRoom)
+  socket.on('studyGroupActivity', handleStudyGroupActivity)
+  socket.on('studyGroupDeleted', handleStudyGroupDeleted)
+  socket.on('studyGroupAccessRemoved', handleStudyGroupAccessRemoved)
+  socket.on('connect_error', () => {
+    errorMessage.value = 'Live updates are unavailable right now.'
+  })
   clockTimer = window.setInterval(() => {
     now.value = Date.now()
   }, 1000)
@@ -88,14 +108,14 @@ onMounted(() => {
 
 
 onUnmounted(() => {
-  window.clearInterval(refreshTimer)
   window.clearInterval(clockTimer)
+  if (socket?.connected && groupId.value) socket.emit('leaveStudyGroup', groupId.value)
+  socket?.disconnect()
 })
 
 
 async function loadMembers() {
-  if (isLoading.value) return
-
+  const requestNumber = ++loadRequestNumber
   isLoading.value = true
   errorMessage.value = ''
 
@@ -103,13 +123,49 @@ async function loadMembers() {
     const data = await request(`/study-groups/${groupId.value}/members`, {
       method: 'GET'
     })
-    studyGroup.value = data.studyGroup
-    members.value = data.members || []
+    if (requestNumber === loadRequestNumber) {
+      studyGroup.value = data.studyGroup
+      members.value = data.members || []
+      activityUpdatedAt.value = new Date(data.weekEnd).getTime()
+    }
   } catch (error) {
-    errorMessage.value = error.message || 'Could not load this study group.'
+    if (requestNumber === loadRequestNumber) {
+      errorMessage.value = error.message || 'Could not load this study group.'
+    }
   } finally {
-    isLoading.value = false
+    if (requestNumber === loadRequestNumber) isLoading.value = false
   }
+}
+
+
+function joinGroupRoom() {
+  socket.emit('joinStudyGroup', groupId.value, response => {
+    if (!response?.ok) {
+      errorMessage.value = response?.message || 'Could not join live group updates.'
+    }
+  })
+}
+
+
+function handleStudyGroupActivity(activity) {
+  if (activity.studyGroup?.id !== groupId.value) return
+
+  loadRequestNumber += 1
+  studyGroup.value = activity.studyGroup
+  members.value = activity.members || []
+  activityUpdatedAt.value = new Date(activity.weekEnd).getTime()
+  isLoading.value = false
+  errorMessage.value = ''
+}
+
+
+function handleStudyGroupDeleted(update) {
+  if (update.groupId === groupId.value) router.push('/study-groups')
+}
+
+
+function handleStudyGroupAccessRemoved(update) {
+  if (update.groupId === groupId.value) router.push('/study-groups')
 }
 
 
@@ -119,14 +175,20 @@ function activeSessionSeconds(session) {
 }
 
 
+function displayWeeklyStudyTime(member) {
+  const liveSeconds = member.activeStudySession
+    ? Math.max(0, Math.floor((now.value - activityUpdatedAt.value) / 1000))
+    : 0
+  return member.weeklyStudyTime + liveSeconds
+}
+
+
 function formatDuration(seconds) {
   const totalSeconds = Math.max(0, Math.floor(seconds || 0))
   const hours = Math.floor(totalSeconds / 3600)
   const minutes = Math.floor((totalSeconds % 3600) / 60)
-
-  if (hours) return `${hours}h ${minutes}m`
-  if (minutes) return `${minutes}m`
-  return `${totalSeconds}s`
+  const remainingSeconds = totalSeconds % 60
+  return `${hours}h ${String(minutes).padStart(2, '0')}m ${String(remainingSeconds).padStart(2, '0')}s`
 }
 </script>
 
