@@ -56,7 +56,13 @@ const routes = [
         component: () => import('./pages/GoalsView.vue'), 
         meta: { requiresAuth: true } 
     },
-    { 
+    {
+        path: '/study-groups',
+        name: 'study-groups',
+        component: () => import('./pages/StudyGroupsView.vue'),
+        meta: { requiresAuth: true }
+    },
+    {
         path: '/profile', 
         name: 'profile', 
         component: () => import('./pages/ProfileView.vue'), 
@@ -86,3 +92,4 @@ router.beforeEach(async (to, from, next) => {
 })
 
 export default router
+

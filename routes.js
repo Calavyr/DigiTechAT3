@@ -47,6 +47,15 @@ const {
     deleteStudyTask
 } = require('./controllers/goalsController')
 
+const {
+    fetchStudyGroups,
+    createStudyGroup,
+    joinStudyGroup,
+    editStudyGroup,
+    leaveStudyGroup,
+    deleteStudyGroup
+} = require('./controllers/studyGroupController')
+
 
 // Habits
 
@@ -118,6 +127,20 @@ router.get(
     '/study/sessions/active',
     fetchActiveStudySession
 )
+
+
+// Study groups
+router.get('/study-groups', fetchStudyGroups)
+
+router.post('/study-groups', createStudyGroup)
+
+router.post('/study-groups/join', joinStudyGroup)
+
+router.patch('/study-groups/:groupId', editStudyGroup)
+
+router.post('/study-groups/:groupId/leave', leaveStudyGroup)
+
+router.delete('/study-groups/:groupId', deleteStudyGroup)
 
 
 // Authentication

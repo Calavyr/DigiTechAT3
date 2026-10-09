@@ -6,6 +6,7 @@
       <router-link to="/habits" class="nav-item">Habits</router-link>
       <router-link to="/study" class="nav-item">Study</router-link>
       <router-link to="/goals" class="nav-item">Goals</router-link>
+      <router-link to="/study-groups" class="nav-item">Study Groups</router-link>
       <router-link to="/profile" class="nav-item">Profile</router-link>
     </div>
   </nav>
