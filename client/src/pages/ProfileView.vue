@@ -29,8 +29,17 @@
     <section class="profile-section">
       <h3>Sign out</h3>
       <p v-if="errorMessage" class="error-message" role="alert">{{ errorMessage }}</p>
-      <button type="button" :disabled="isLoggingOut" @click="logout">
+      <button type="button" :disabled="isLoggingOut || isDeletingAccount" @click="logout">
         {{ isLoggingOut ? 'Logging out…' : 'Log out' }}
+      </button>
+    </section>
+
+    <section class="profile-section danger-section">
+      <h3>Delete account</h3>
+      <p>This permanently deletes your account and personal study data.</p>
+      <p v-if="deleteErrorMessage" class="error-message" role="alert">{{ deleteErrorMessage }}</p>
+      <button type="button" :disabled="isLoggingOut || isDeletingAccount" @click="deleteAccount">
+        {{ isDeletingAccount ? 'Deleting account…' : 'Delete account' }}
       </button>
     </section>
   </div>
@@ -44,7 +53,9 @@ import { authState } from '@/services/authState.js'
 
 const router = useRouter()
 const isLoggingOut = ref(false)
+const isDeletingAccount = ref(false)
 const errorMessage = ref('')
+const deleteErrorMessage = ref('')
 const todayDate = new Date().toLocaleDateString('en-GB')
 
 async function logout() {
@@ -64,6 +75,26 @@ async function logout() {
     errorMessage.value = error.message || 'Could not log out. Please try again.'
   } finally {
     isLoggingOut.value = false
+  }
+}
+
+async function deleteAccount() {
+  const confirmed = confirm(
+    'Delete your account permanently? Your account and personal study data will be removed.'
+  )
+  if (!confirmed) return
+
+  isDeletingAccount.value = true
+  deleteErrorMessage.value = ''
+
+  try {
+    await request('/auth/account', { method: 'DELETE' })
+    authState.logout()
+    await router.replace('/login')
+  } catch (error) {
+    deleteErrorMessage.value = error.message || 'Could not delete your account.'
+  } finally {
+    isDeletingAccount.value = false
   }
 }
 </script>
@@ -92,6 +123,11 @@ async function logout() {
   padding: 20px;
   border: 1px solid #ddd;
   border-radius: 8px;
+}
+
+.danger-section button {
+  background: #fdecea;
+  color: #8c1d18;
 }
 
 .account-info > div {

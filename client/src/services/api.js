@@ -12,6 +12,7 @@ const AUTH_ENDPOINTS = new Set([
   '/auth/login',
   '/auth/register',
   '/auth/logout',
+  '/auth/account',
   '/auth/refresh',
   '/auth/resetPassword'
 ])
@@ -137,7 +138,7 @@ export async function request(endpoint, options = {}) {
       })
     }
 
-    if (endpoint === '/auth/logout' && response.ok) {
+    if ((endpoint === '/auth/logout' || endpoint === '/auth/account') && response.ok) {
       await clearOfflineData().catch(error => {
         console.error('Could not clear offline data after logout:', error)
       })

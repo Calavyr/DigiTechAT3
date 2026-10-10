@@ -1,6 +1,14 @@
 const jwt = require('jsonwebtoken')
 const fs = require('fs')
 const User = require('../models/user')
+const Habit = require('../models/habit.js')
+const HabitCompletion = require('../models/habitCompletion.js')
+const Subject = require('../models/subject.js')
+const StudySession = require('../models/studySession.js')
+const StudyGoal = require('../models/studyGoal.js')
+const StudyTask = require('../models/studyTask.js')
+const StudyGroup = require('../models/studyGroup.js')
+const websocketController = require('./websocketController.js')
 const { verificationEmailIds, addVerificationEmailId } = require('../shared/emailStore')
 const { sendVerificationEmail } = require('./mailController')
 
@@ -57,6 +65,51 @@ exports.logout = async (req, res) => {
     } catch (err) {
         console.error('Error logging user out: , err')
         res.status(500).json({ message: 'Unexpected error logging user out' })
+    }
+}
+
+exports.deleteAccount = async (req, res) => {
+    try {
+        const { userId } = req.user
+        const habits = await Habit.find({ userId }).select('_id').lean()
+        const habitIds = habits.map(habit => habit._id)
+
+        await HabitCompletion.deleteMany({ habitId: { $in: habitIds } })
+        await StudyTask.deleteMany({ userId })
+        await StudyGoal.deleteMany({ userId })
+        await StudySession.deleteMany({ userId })
+        await Subject.deleteMany({ userId })
+        await Habit.deleteMany({ userId })
+
+        const studyGroups = await StudyGroup.find({ memberIds: userId })
+        for (const studyGroup of studyGroups) {
+            const remainingMembers = studyGroup.memberIds.filter(
+                memberId => memberId.toString() !== userId.toString()
+            )
+
+            if (remainingMembers.length === 0) {
+                await StudyGroup.deleteOne({ _id: studyGroup._id })
+                websocketController.notifyStudyGroupDeleted(studyGroup._id)
+            } else {
+                studyGroup.memberIds = remainingMembers
+                if (studyGroup.creatorId.toString() === userId.toString()) {
+                    studyGroup.creatorId = remainingMembers[0]
+                }
+                await studyGroup.save()
+                websocketController.notifyStudyGroupUpdated(studyGroup._id)
+            }
+
+            websocketController.removeUserFromStudyGroup(userId, studyGroup._id)
+        }
+
+        await User.deleteOne({ _id: userId })
+        res.clearCookie('accessToken', baseCookieOptions)
+        res.clearCookie('refreshToken', baseCookieOptions)
+
+        return res.status(200).json({ message: 'Account deleted successfully' })
+    } catch (err) {
+        console.error('Error deleting account: ', err)
+        return res.status(500).json({ message: 'Could not delete account' })
     }
 }
 

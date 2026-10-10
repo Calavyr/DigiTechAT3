@@ -15,6 +15,7 @@ const {
     registerUser,
     login,
     logout,
+    deleteAccount,
     refreshToken,
     resetPassword
 } = require('./controllers/authController')
@@ -155,6 +156,8 @@ router.post('/auth/resetPassword', resetPassword)
 router.post('/auth/login', login)
 
 router.post('/auth/logout', logout)
+
+router.delete('/auth/account', deleteAccount)
 
 router.post('/auth/refresh', refreshToken)
 
