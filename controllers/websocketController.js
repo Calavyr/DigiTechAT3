@@ -7,6 +7,7 @@ const User = require('../models/user.js')
 const { buildStudyGroupActivity } = require('../services/studyGroupActivity.js')
 
 let ioInstance = null
+const CHAT_PAGE_SIZE = 50
 
 function setupWebsockets(io) {
     ioInstance = io
@@ -143,26 +144,65 @@ function setupWebsockets(io) {
                 console.error('Error loading study group chat: ', error)
             }
         })
+
+        socket.on('loadOlderStudyGroupMessages', async (payload, acknowledge = () => {}) => {
+            if (typeof acknowledge !== 'function') acknowledge = () => {}
+
+            const groupId = payload?.groupId
+            const beforeId = payload?.beforeId
+            if (!isValidGroupId(groupId) || groupId !== currentStudyGroupId || !isValidGroupId(beforeId)) {
+                acknowledge({ ok: false, message: 'Could not load older messages' })
+                return
+            }
+
+            try {
+                const isMember = await StudyGroup.exists({
+                    _id: groupId,
+                    memberIds: socket.data.userId
+                })
+                if (!isMember) {
+                    acknowledge({ ok: false, message: 'You are not a member of this study group' })
+                    return
+                }
+
+                const page = await getStudyGroupChatPage(groupId, beforeId)
+                acknowledge({ ok: true, ...page })
+            } catch (error) {
+                console.error('Error loading older study group messages: ', error)
+                acknowledge({ ok: false, message: 'Could not load older messages' })
+            }
+        })
     })
 }
 
 async function emitStudyGroupChatHistory(socket, groupId) {
-    const messages = await StudyGroupMessage.find({ groupId })
-        .sort({ createdAt: -1 })
-        .limit(100)
-        .populate('userId', 'username')
-        .lean()
+    const page = await getStudyGroupChatPage(groupId)
 
     socket.emit('studyGroupChatHistory', {
         groupId: groupId.toString(),
-        messages: messages.reverse().map(message => ({
-            id: message._id.toString(),
-            userId: message.userId?._id?.toString() || '',
-            username: message.userId?.username || 'Former member',
-            message: message.message,
-            createdAt: message.createdAt
-        }))
+        ...page
     })
+}
+
+async function getStudyGroupChatPage(groupId, beforeId) {
+    const filter = { groupId }
+    if (beforeId) filter._id = { $lt: beforeId }
+
+    const results = await StudyGroupMessage.find(filter)
+        .sort({ _id: -1 })
+        .limit(CHAT_PAGE_SIZE + 1)
+        .populate('userId', 'username')
+        .lean()
+    const hasMore = results.length > CHAT_PAGE_SIZE
+    const messages = results.slice(0, CHAT_PAGE_SIZE).reverse().map(message => ({
+        id: message._id.toString(),
+        userId: message.userId?._id?.toString() || '',
+        username: message.userId?.username || 'Former member',
+        message: message.message,
+        createdAt: message.createdAt
+    }))
+
+    return { messages, hasMore }
 }
 
 function notifyStudyGroupMembers(userId) {

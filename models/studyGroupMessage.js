@@ -20,5 +20,6 @@ const studyGroupMessageSchema = new mongoose.Schema({
 }, { timestamps: true })
 
 studyGroupMessageSchema.index({ groupId: 1, createdAt: -1 })
+studyGroupMessageSchema.index({ groupId: 1, _id: -1 })
 
 module.exports = mongoose.model('StudyGroupMessage', studyGroupMessageSchema)

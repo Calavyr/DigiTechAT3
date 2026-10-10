@@ -57,7 +57,16 @@
       <h3>Study group chat</h3>
       <p class="chat-note">Prototype chatroom. Recent messages are saved with this group.</p>
 
-      <div ref="chatWindow" class="chat-window" aria-live="polite">
+      <div ref="chatWindow" class="chat-window" aria-live="polite" @scroll="handleChatScroll">
+        <button
+          v-if="chatHasMore"
+          class="load-older-button"
+          type="button"
+          :disabled="isLoadingOlderMessages"
+          @click="loadOlderChatMessages"
+        >
+          {{ isLoadingOlderMessages ? 'Loading earlier messages…' : 'Load earlier messages' }}
+        </button>
         <p v-if="!isSocketConnected">Connecting to chat…</p>
         <p v-else-if="!chatMessages.length">No messages yet. Say hello.</p>
         <p v-for="message in chatMessages" :key="message.id" class="chat-message">
@@ -100,11 +109,13 @@ const studyGroup = ref(null)
 const members = ref([])
 const chatMessages = ref([])
 const chatDraft = ref('')
+const chatHasMore = ref(false)
 const now = ref(Date.now())
 const activityUpdatedAt = ref(Date.now())
 const isLoading = ref(false)
 const isSocketConnected = ref(false)
 const isSendingMessage = ref(false)
+const isLoadingOlderMessages = ref(false)
 const errorMessage = ref('')
 const chatError = ref('')
 const chatWindow = ref(null)
@@ -118,6 +129,7 @@ watch(groupId, (nextGroupId, previousGroupId) => {
   studyGroup.value = null
   members.value = []
   chatMessages.value = []
+  chatHasMore.value = false
   loadMembers()
 
   if (socket?.connected) {
@@ -195,6 +207,7 @@ function joinGroupRoom() {
 function handleChatHistory(history) {
   if (history.groupId !== groupId.value) return
   chatMessages.value = history.messages || []
+  chatHasMore.value = Boolean(history.hasMore)
   chatError.value = ''
   scrollChatToBottom()
 }
@@ -202,8 +215,10 @@ function handleChatHistory(history) {
 
 function handleChatMessage(message) {
   if (chatMessages.value.some(existing => existing.id === message.id)) return
+  const shouldScroll = !chatWindow.value
+    || chatWindow.value.scrollHeight - chatWindow.value.scrollTop - chatWindow.value.clientHeight < 40
   chatMessages.value.push(message)
-  scrollChatToBottom()
+  if (shouldScroll) scrollChatToBottom()
 }
 
 
@@ -211,6 +226,48 @@ function handleChatUpdated(update) {
   if (update.groupId === groupId.value && socket?.connected) {
     socket.emit('loadStudyGroupChat', groupId.value)
   }
+}
+
+
+function handleChatScroll() {
+  if (chatWindow.value?.scrollTop <= 4) loadOlderChatMessages()
+}
+
+
+function loadOlderChatMessages() {
+  if (!chatHasMore.value || isLoadingOlderMessages.value || !socket?.connected) return
+
+  const firstMessage = chatMessages.value[0]
+  const container = chatWindow.value
+  if (!firstMessage?.id || !container) return
+
+  const requestedGroupId = groupId.value
+  const previousHeight = container.scrollHeight
+  const previousTop = container.scrollTop
+  isLoadingOlderMessages.value = true
+
+  socket.emit('loadOlderStudyGroupMessages', {
+    groupId: requestedGroupId,
+    beforeId: firstMessage.id
+  }, response => {
+    isLoadingOlderMessages.value = false
+    if (!response?.ok) {
+      chatError.value = response?.message || 'Could not load earlier messages.'
+      return
+    }
+    if (requestedGroupId !== groupId.value) return
+
+    const existingIds = new Set(chatMessages.value.map(message => message.id))
+    const olderMessages = (response.messages || []).filter(message => !existingIds.has(message.id))
+    chatMessages.value = [...olderMessages, ...chatMessages.value]
+    chatHasMore.value = Boolean(response.hasMore)
+
+    nextTick(() => {
+      if (chatWindow.value) {
+        chatWindow.value.scrollTop = previousTop + chatWindow.value.scrollHeight - previousHeight
+      }
+    })
+  })
 }
 
 
@@ -356,6 +413,13 @@ header p,
 
 .chat-window p {
   margin: 4px 0;
+}
+
+.load-older-button {
+  display: block;
+  margin: 0 auto 8px;
+  padding: 5px 8px;
+  font-family: inherit;
 }
 
 .chat-message span {
