@@ -8,6 +8,7 @@ const StudySession = require('../models/studySession.js')
 const StudyGoal = require('../models/studyGoal.js')
 const StudyTask = require('../models/studyTask.js')
 const StudyGroup = require('../models/studyGroup.js')
+const StudyGroupMessage = require('../models/studyGroupMessage.js')
 const websocketController = require('./websocketController.js')
 const { verificationEmailIds, addVerificationEmailId } = require('../shared/emailStore')
 const { sendVerificationEmail } = require('./mailController')
@@ -81,6 +82,12 @@ exports.deleteAccount = async (req, res) => {
         await Subject.deleteMany({ userId })
         await Habit.deleteMany({ userId })
 
+        const groupsWithMessages = await StudyGroupMessage.distinct('groupId', { userId })
+        await StudyGroupMessage.deleteMany({ userId })
+        for (const groupId of groupsWithMessages) {
+            websocketController.notifyStudyGroupChatUpdated(groupId)
+        }
+
         const studyGroups = await StudyGroup.find({ memberIds: userId })
         for (const studyGroup of studyGroups) {
             const remainingMembers = studyGroup.memberIds.filter(
@@ -88,6 +95,7 @@ exports.deleteAccount = async (req, res) => {
             )
 
             if (remainingMembers.length === 0) {
+                await StudyGroupMessage.deleteMany({ groupId: studyGroup._id })
                 await StudyGroup.deleteOne({ _id: studyGroup._id })
                 websocketController.notifyStudyGroupDeleted(studyGroup._id)
             } else {

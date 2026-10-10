@@ -44,3 +44,8 @@ __screenshots__/
 
 # Vite
 *.timestamp-*-*.mjs
+
+
+# Assignment
+scaffold.docx
+script.docx

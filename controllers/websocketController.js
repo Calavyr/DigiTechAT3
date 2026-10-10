@@ -2,6 +2,7 @@ const cookieParser = require('cookie-parser')
 const fs = require('fs')
 const jwt = require('jsonwebtoken')
 const StudyGroup = require('../models/studyGroup.js')
+const StudyGroupMessage = require('../models/studyGroupMessage.js')
 const User = require('../models/user.js')
 const { buildStudyGroupActivity } = require('../services/studyGroupActivity.js')
 
@@ -17,11 +18,13 @@ function setupWebsockets(io) {
             const cookies = parseCookies(socket.handshake.headers.cookie || '')
             const token = getValidToken(cookies, cookieSecret, publicKey)
             const userId = token.sub
-            if (!await User.exists({ _id: userId })) {
+            const user = await User.findById(userId).select('_id username')
+            if (!user) {
                 return next(new Error('Unauthorised'))
             }
 
             socket.data.userId = userId
+            socket.data.username = user.username
             next()
         } catch {
             next(new Error('Unauthorised'))
@@ -31,6 +34,7 @@ function setupWebsockets(io) {
     io.on('connection', (socket) => {
         let currentRoom = null
         let currentStudyGroupRoom = null
+        let currentStudyGroupId = null
         socket.join(userRoom(socket.data.userId))
 
         socket.on('changeDate', (dateString) => {
@@ -59,8 +63,10 @@ function setupWebsockets(io) {
 
                 if (currentStudyGroupRoom) socket.leave(currentStudyGroupRoom)
                 currentStudyGroupRoom = studyGroupRoom(studyGroup._id)
+                currentStudyGroupId = studyGroup._id.toString()
                 socket.join(currentStudyGroupRoom)
                 socket.emit('studyGroupActivity', await buildStudyGroupActivity(studyGroup))
+                await emitStudyGroupChatHistory(socket, studyGroup._id)
                 acknowledge({ ok: true, groupId: studyGroup._id.toString() })
             } catch (error) {
                 console.error('Error joining study group socket room: ', error)
@@ -73,8 +79,89 @@ function setupWebsockets(io) {
 
             const room = studyGroupRoom(groupId)
             socket.leave(room)
-            if (currentStudyGroupRoom === room) currentStudyGroupRoom = null
+            if (currentStudyGroupRoom === room) {
+                currentStudyGroupRoom = null
+                currentStudyGroupId = null
+            }
         })
+
+        socket.on('sendStudyGroupMessage', async (payload, acknowledge = () => {}) => {
+            if (typeof acknowledge !== 'function') acknowledge = () => {}
+
+            const groupId = payload?.groupId
+            const message = typeof payload?.message === 'string' ? payload.message.trim() : ''
+            if (!isValidGroupId(groupId) || groupId !== currentStudyGroupId) {
+                acknowledge({ ok: false, message: 'Join this study group before sending a message' })
+                return
+            }
+            if (!message || message.length > 500) {
+                acknowledge({ ok: false, message: 'Messages must be between 1 and 500 characters' })
+                return
+            }
+
+            try {
+                const studyGroup = await StudyGroup.findOne({
+                    _id: groupId,
+                    memberIds: socket.data.userId
+                }).select('_id')
+                if (!studyGroup) {
+                    acknowledge({ ok: false, message: 'You are not a member of this study group' })
+                    return
+                }
+
+                const savedMessage = await StudyGroupMessage.create({
+                    groupId,
+                    userId: socket.data.userId,
+                    message
+                })
+                const chatMessage = {
+                    id: savedMessage._id.toString(),
+                    userId: socket.data.userId,
+                    username: socket.data.username,
+                    message: savedMessage.message,
+                    createdAt: savedMessage.createdAt
+                }
+
+                ioInstance.to(studyGroupRoom(groupId)).emit('studyGroupChatMessage', chatMessage)
+                acknowledge({ ok: true, messageId: chatMessage.id })
+            } catch (error) {
+                console.error('Error saving study group message: ', error)
+                acknowledge({ ok: false, message: 'Could not send message' })
+            }
+        })
+
+        socket.on('loadStudyGroupChat', async (groupId) => {
+            if (!isValidGroupId(groupId) || groupId !== currentStudyGroupId) return
+
+            try {
+                const isMember = await StudyGroup.exists({
+                    _id: groupId,
+                    memberIds: socket.data.userId
+                })
+                if (isMember) await emitStudyGroupChatHistory(socket, groupId)
+            } catch (error) {
+                console.error('Error loading study group chat: ', error)
+            }
+        })
+    })
+}
+
+async function emitStudyGroupChatHistory(socket, groupId) {
+    const messages = await StudyGroupMessage.find({ groupId })
+        .sort({ createdAt: -1 })
+        .limit(100)
+        .populate('userId', 'username')
+        .lean()
+
+    socket.emit('studyGroupChatHistory', {
+        groupId: groupId.toString(),
+        messages: messages.reverse().map(message => ({
+            id: message._id.toString(),
+            userId: message.userId?._id?.toString() || '',
+            username: message.userId?.username || 'Former member',
+            message: message.message,
+            createdAt: message.createdAt
+        }))
     })
 }
 
@@ -107,6 +194,13 @@ async function notifyStudyGroupUpdated(groupId) {
 function notifyStudyGroupDeleted(groupId) {
     if (!ioInstance || groupId == null) return
     ioInstance.to(studyGroupRoom(groupId)).emit('studyGroupDeleted', {
+        groupId: groupId.toString()
+    })
+}
+
+function notifyStudyGroupChatUpdated(groupId) {
+    if (!ioInstance || groupId == null) return
+    ioInstance.to(studyGroupRoom(groupId)).emit('studyGroupChatUpdated', {
         groupId: groupId.toString()
     })
 }
@@ -171,5 +265,6 @@ module.exports = {
     notifyStudyGroupMembers,
     notifyStudyGroupUpdated,
     notifyStudyGroupDeleted,
+    notifyStudyGroupChatUpdated,
     removeUserFromStudyGroup
 }

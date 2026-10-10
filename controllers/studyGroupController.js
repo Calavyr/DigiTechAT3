@@ -1,4 +1,5 @@
 const StudyGroup = require('../models/studyGroup.js')
+const StudyGroupMessage = require('../models/studyGroupMessage.js')
 const websocketController = require('./websocketController.js')
 const { buildStudyGroupActivity } = require('../services/studyGroupActivity.js')
 
@@ -123,6 +124,7 @@ exports.leaveStudyGroup = async (req, res) => {
             return res.status(404).json({ message: 'Study group not found' })
         }
         if (studyGroup.memberIds.length === 0) {
+            await StudyGroupMessage.deleteMany({ groupId: studyGroup._id })
             await StudyGroup.deleteOne({ _id: studyGroup._id })
             websocketController.notifyStudyGroupDeleted(studyGroup._id)
         } else {
@@ -150,6 +152,7 @@ exports.deleteStudyGroup = async (req, res) => {
             })
         }
 
+        await StudyGroupMessage.deleteMany({ groupId: studyGroup._id })
         websocketController.notifyStudyGroupDeleted(studyGroup._id)
 
         return res.status(204).send()

@@ -52,12 +52,41 @@
         </article>
       </div>
     </section>
+
+    <section class="chat-section">
+      <h3>Study group chat</h3>
+      <p class="chat-note">Prototype chatroom. Recent messages are saved with this group.</p>
+
+      <div ref="chatWindow" class="chat-window" aria-live="polite">
+        <p v-if="!isSocketConnected">Connecting to chat…</p>
+        <p v-else-if="!chatMessages.length">No messages yet. Say hello.</p>
+        <p v-for="message in chatMessages" :key="message.id" class="chat-message">
+          <span>[{{ formatChatTime(message.createdAt) }}] </span>
+          <strong>{{ message.username }}:</strong> {{ message.message }}
+        </p>
+      </div>
+
+      <form class="chat-form" @submit.prevent="sendChatMessage">
+        <input
+          v-model="chatDraft"
+          type="text"
+          maxlength="500"
+          placeholder="Type a message"
+          :disabled="!isSocketConnected || isSendingMessage"
+          required
+        >
+        <button type="submit" :disabled="!isSocketConnected || isSendingMessage || !chatDraft.trim()">
+          Send
+        </button>
+      </form>
+      <p v-if="chatError" class="error-message" role="alert">{{ chatError }}</p>
+    </section>
   </div>
 </template>
 
 
 <script setup>
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { io } from 'socket.io-client'
 import { request } from '@/services/api.js'
@@ -69,10 +98,16 @@ const router = useRouter()
 const date = ref(new Date().toLocaleDateString('en-GB'))
 const studyGroup = ref(null)
 const members = ref([])
+const chatMessages = ref([])
+const chatDraft = ref('')
 const now = ref(Date.now())
 const activityUpdatedAt = ref(Date.now())
 const isLoading = ref(false)
+const isSocketConnected = ref(false)
+const isSendingMessage = ref(false)
 const errorMessage = ref('')
+const chatError = ref('')
+const chatWindow = ref(null)
 let socket
 let clockTimer
 let loadRequestNumber = 0
@@ -82,6 +117,7 @@ const groupId = computed(() => route.params.groupId)
 watch(groupId, (nextGroupId, previousGroupId) => {
   studyGroup.value = null
   members.value = []
+  chatMessages.value = []
   loadMembers()
 
   if (socket?.connected) {
@@ -94,8 +130,17 @@ watch(groupId, (nextGroupId, previousGroupId) => {
 onMounted(() => {
   loadMembers()
   socket = io({ withCredentials: true })
-  socket.on('connect', joinGroupRoom)
+  socket.on('connect', () => {
+    isSocketConnected.value = true
+    joinGroupRoom()
+  })
+  socket.on('disconnect', () => {
+    isSocketConnected.value = false
+  })
   socket.on('studyGroupActivity', handleStudyGroupActivity)
+  socket.on('studyGroupChatHistory', handleChatHistory)
+  socket.on('studyGroupChatMessage', handleChatMessage)
+  socket.on('studyGroupChatUpdated', handleChatUpdated)
   socket.on('studyGroupDeleted', handleStudyGroupDeleted)
   socket.on('studyGroupAccessRemoved', handleStudyGroupAccessRemoved)
   socket.on('connect_error', () => {
@@ -147,6 +192,56 @@ function joinGroupRoom() {
 }
 
 
+function handleChatHistory(history) {
+  if (history.groupId !== groupId.value) return
+  chatMessages.value = history.messages || []
+  chatError.value = ''
+  scrollChatToBottom()
+}
+
+
+function handleChatMessage(message) {
+  if (chatMessages.value.some(existing => existing.id === message.id)) return
+  chatMessages.value.push(message)
+  scrollChatToBottom()
+}
+
+
+function handleChatUpdated(update) {
+  if (update.groupId === groupId.value && socket?.connected) {
+    socket.emit('loadStudyGroupChat', groupId.value)
+  }
+}
+
+
+async function sendChatMessage() {
+  const message = chatDraft.value.trim()
+  if (!message || !socket?.connected) return
+
+  isSendingMessage.value = true
+  chatError.value = ''
+  socket.emit('sendStudyGroupMessage', {
+    groupId: groupId.value,
+    message
+  }, response => {
+    isSendingMessage.value = false
+    if (!response?.ok) {
+      chatError.value = response?.message || 'Could not send message.'
+      return
+    }
+
+    if (chatDraft.value.trim() === message) chatDraft.value = ''
+  })
+}
+
+
+function scrollChatToBottom() {
+  nextTick(() => {
+    if (chatWindow.value) chatWindow.value.scrollTop = chatWindow.value.scrollHeight
+  })
+}
+
+
 function handleStudyGroupActivity(activity) {
   if (activity.studyGroup?.id !== groupId.value) return
 
@@ -190,6 +285,14 @@ function formatDuration(seconds) {
   const remainingSeconds = totalSeconds % 60
   return `${hours}h ${String(minutes).padStart(2, '0')}m ${String(remainingSeconds).padStart(2, '0')}s`
 }
+
+
+function formatChatTime(value) {
+  return new Date(value).toLocaleTimeString(undefined, {
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+}
 </script>
 
 
@@ -227,6 +330,50 @@ header p,
 
 .members-section {
   margin-top: 28px;
+}
+
+.chat-section {
+  margin-top: 32px;
+}
+
+.chat-section h3 {
+  margin-bottom: 4px;
+}
+
+.chat-note {
+  margin-top: 0;
+  color: #666;
+}
+
+.chat-window {
+  height: 240px;
+  overflow-y: auto;
+  padding: 10px;
+  border: 1px solid #999;
+  background: white;
+  font-family: monospace;
+}
+
+.chat-window p {
+  margin: 4px 0;
+}
+
+.chat-message span {
+  color: #666;
+}
+
+.chat-form {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.chat-form input {
+  flex: 1;
+  min-width: 0;
+  padding: 9px;
+  border: 1px solid #999;
+  font: inherit;
 }
 
 .members-heading,
