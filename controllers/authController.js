@@ -184,7 +184,7 @@ exports.resetPassword = async (req, res) => {
         }
         const verificationId = randomString
 
-        addVerificationEmailId(verificationId, email, username, newPassword)
+        addVerificationEmailId(verificationId, email, username, password)
 
         // Return a JSON confirmation block so client-side parsing doesn't break
         res.status(202).json({ message: 'Verification email processing initiated.', username: username })
